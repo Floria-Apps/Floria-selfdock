@@ -1,6 +1,6 @@
 # Floria SelfDock ⚓
 
-> Open-source software, built with simplicity in mind. — [FloriaApps](https://github.com/FloriaApps)
+> Open-source software, built with simplicity in mind. — [Floria-Apps](https://github.com/Floria-Apps)
 
 [![Deploy](https://github.com/FloriaApps/Floria-selfdock/actions/workflows/deploy.yml/badge.svg)](https://github.com/FloriaApps/Floria-selfdock/actions/workflows/deploy.yml)
 
