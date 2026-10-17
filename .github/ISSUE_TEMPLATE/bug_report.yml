@@ -1,0 +1,66 @@
+name: Bug report
+description: Something is not working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report this. The more detail you give, the faster it can be fixed.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include a screenshot if it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the dashboard
+        2. Click ...
+  - type: input
+    id: version
+    attributes:
+      label: SelfDock version
+      description: Shown in Settings, under Connection, or the image tag you are running.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How are you running it?
+      options:
+        - Docker Compose with the socket proxy (docker-compose.yml)
+        - Docker Compose with the socket mounted directly (docker-compose.simple.yml)
+        - From source (npm)
+        - Demo mode
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Docker version and operating system
+      placeholder: Docker 27.3 on Ubuntu 24.04 (arm64)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `docker logs floria-selfdock`. Remove anything private first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I removed passwords, tokens and private addresses from what I pasted.
+          required: true

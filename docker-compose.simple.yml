@@ -1,0 +1,28 @@
+# Simpler version: SelfDock receives the Docker socket directly.
+#
+# WARNING: anyone who can reach the Docker socket controls the whole machine. The ":ro" does NOT prevent that
+# (it only protects the socket file; the API still accepts commands). Prefer docker-compose.yml, which uses the
+# proxy. Use this one only on a trusted home network.
+#
+# Find the socket's group ID with:  stat -c %g /var/run/docker.sock   and put it in DOCKER_GID in your .env
+name: floria-selfdock
+
+services:
+  selfdock:
+    build: .
+    container_name: floria-selfdock
+    restart: unless-stopped
+    ports:
+      - "${SELFDOCK_PORT:-3000}:3000"
+    group_add:
+      - "${DOCKER_GID:-999}"
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - selfdock-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      floria.hide: "true"
+
+volumes:
+  selfdock-data:

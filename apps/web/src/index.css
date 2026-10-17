@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * <m3e-theme> generates the Material 3 colours as --md-sys-color-*. These are our short names for them,
+ * used by Tailwind (tailwind.config.ts) and by the rest of the CSS. --success, --warning and --t1-bg...
+ * are set by lib/theme.ts, because Material 3 has no such roles.
+ */
+m3e-theme {
+  --primary: var(--md-sys-color-primary); --on-primary: var(--md-sys-color-on-primary);
+  --primary-container: var(--md-sys-color-primary-container); --on-primary-container: var(--md-sys-color-on-primary-container);
+  --secondary: var(--md-sys-color-secondary); --on-secondary: var(--md-sys-color-on-secondary);
+  --secondary-container: var(--md-sys-color-secondary-container); --on-secondary-container: var(--md-sys-color-on-secondary-container);
+  --tertiary: var(--md-sys-color-tertiary); --on-tertiary: var(--md-sys-color-on-tertiary);
+  --tertiary-container: var(--md-sys-color-tertiary-container); --on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+  --error: var(--md-sys-color-error); --on-error: var(--md-sys-color-on-error);
+  --error-container: var(--md-sys-color-error-container); --on-error-container: var(--md-sys-color-on-error-container);
+  --surface: var(--md-sys-color-surface); --on-surface: var(--md-sys-color-on-surface); --on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --outline: var(--md-sys-color-outline); --outline-variant: var(--md-sys-color-outline-variant);
+  --sc-lowest: var(--md-sys-color-surface-container-lowest); --sc-low: var(--md-sys-color-surface-container-low);
+  --sc: var(--md-sys-color-surface-container); --sc-high: var(--md-sys-color-surface-container-high); --sc-highest: var(--md-sys-color-surface-container-highest);
+  --inverse-surface: var(--md-sys-color-inverse-surface); --inverse-on-surface: var(--md-sys-color-inverse-on-surface); --inverse-primary: var(--md-sys-color-inverse-primary);
+}
+
+/* A few tweaks to the Material 3 Expressive components */
+m3e-card { --m3e-card-padding: 16px; --m3e-card-shape: 1rem; --m3e-filled-card-container-color: var(--md-sys-color-surface-container-low); }
+m3e-list { --m3e-segmented-list-item-container-color: var(--md-sys-color-surface-container-low); }
+m3e-nav-bar { --m3e-nav-bar-vertical-item-width: 56px; }
+m3e-nav-rail { --m3e-nav-rail-compact-width: 80px; --m3e-nav-rail-inline-padding: 0px; }
+.btn-danger { --m3e-text-button-label-text-color: var(--md-sys-color-error); --m3e-text-button-icon-color: var(--md-sys-color-error); }
+
+:root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; font-family: 'Roboto Flex Variable', 'Roboto Flex', Roboto, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+
+@layer components {
+  /* Material 3 type scale */
+  .t-headline-s { font-size: 24px; line-height: 32px; font-weight: 400; }
+  .t-title-l { font-size: 22px; line-height: 28px; font-weight: 400; }
+  .t-title-m { font-size: 16px; line-height: 24px; font-weight: 500; letter-spacing: .15px; }
+  .t-body-l { font-size: 16px; line-height: 24px; font-weight: 400; letter-spacing: .5px; }
+  .t-body-m { font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: .25px; }
+  .t-body-s { font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: .4px; }
+  .t-label-l { font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: .1px; }
+  .t-label-m { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .5px; }
+  .hero-title { font-size: 28px; line-height: 36px; font-weight: 500; letter-spacing: -.2px; text-wrap: balance; font-variation-settings: 'opsz' 40; }
+  @media (min-width: 768px) { .hero-title { font-size: 40px; line-height: 48px; font-variation-settings: 'opsz' 72; } }
+
+  .hide-scroll { scrollbar-width: none; }
+  .hide-scroll::-webkit-scrollbar { display: none; }
+}
+
+/* Plain buttons that are not Material components (the colour swatches, the editor's code lines) */
+button:focus-visible, input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }

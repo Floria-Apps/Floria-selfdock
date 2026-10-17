@@ -1,0 +1,84 @@
+# Continuous integration: type-check, test and build the app, and smoke-test the Docker image.
+# It runs on pull requests and on pushes to branches other than main. deploy.yml also calls it,
+# so nothing is published unless these checks pass.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Only cancel superseded pull request runs, never a run that deploy.yml is waiting on.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Type-check, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  docker-smoke:
+    name: Build the image and smoke-test it
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build the image (linux/amd64)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          provenance: false
+          tags: floria-selfdock:ci
+          cache-from: type=gha,scope=selfdock
+          cache-to: type=gha,scope=selfdock,mode=max
+
+      - name: Start it in demo mode and check it responds
+        run: |
+          docker run -d --name selfdock -p 3000:3000 -e FLORIA_DEMO=1 floria-selfdock:ci
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health | grep -q '"ok":true'; then
+              echo "Healthy after ${i}s"
+              break
+            fi
+            if [ "$i" = 30 ]; then
+              echo "The container did not become healthy in 30 s"
+              docker logs selfdock
+              exit 1
+            fi
+            sleep 1
+          done
+
+          # The dashboard is served...
+          curl -fsS -o /dev/null http://127.0.0.1:3000/
+          # ...and the API refuses anonymous requests.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/services)" = 401
+
+      - name: The image can run docker compose
+        run: docker run --rm --entrypoint docker floria-selfdock:ci compose version
+
+      - name: Show the container logs if something failed
+        if: failure()
+        run: docker logs selfdock || true

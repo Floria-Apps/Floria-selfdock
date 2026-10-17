@@ -1,0 +1,19 @@
+# Turns on the stack editor: edit the compose and .env files of your stacks from the dashboard.
+#
+# Use it together with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.stacks.yml up -d
+# (or set COMPOSE_FILE=docker-compose.yml:docker-compose.stacks.yml in your .env)
+#
+# 1. In your .env, set STACKS_DIR to the folder that holds your stacks. It needs one sub-folder per stack,
+#    each with a compose.yaml (or docker-compose.yml). Example:  STACKS_DIR=/opt/stacks
+# 2. The folder is mounted at the SAME path inside SelfDock, because docker compose sends file paths to the host.
+# 3. SelfDock runs as SELFDOCK_UID:SELFDOCK_GID (default 1000:1000). That user must be able to write in STACKS_DIR.
+#
+# This only lets you EDIT files. To also run docker compose from the dashboard, add docker-compose.stacks-apply.yml.
+services:
+  selfdock:
+    user: "${SELFDOCK_UID:-1000}:${SELFDOCK_GID:-1000}"
+    environment:
+      FLORIA_STACKS_DIR: ${STACKS_DIR:?Set STACKS_DIR in your .env, for example /opt/stacks}
+    volumes:
+      - ${STACKS_DIR}:${STACKS_DIR}

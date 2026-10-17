@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "noEmit": true, "skipLibCheck": true, "esModuleInterop": true,
+    "types": ["node"], "baseUrl": ".",
+    "paths": { "@shared/*": ["../../packages/shared/src/*"] }
+  },
+  "include": ["src", "test", "../../packages/shared/src"]
+}

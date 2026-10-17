@@ -1,0 +1,18 @@
+# Groups the automatically generated release notes by label.
+changelog:
+  exclude:
+    labels: [skip-changelog]
+    authors: [dependabot]
+  categories:
+    - title: ✨ New features
+      labels: [enhancement]
+    - title: 🐛 Fixes
+      labels: [bug]
+    - title: 🌍 Translations
+      labels: [translation]
+    - title: 📚 Documentation
+      labels: [documentation]
+    - title: 🔧 Maintenance
+      labels: [chore, dependencies]
+    - title: Other changes
+      labels: ['*']

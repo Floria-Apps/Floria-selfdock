@@ -1,0 +1,21 @@
+# Lets the stack editor RUN docker compose (up, pull, restart, stop, down), not only edit files.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.stacks.yml -f docker-compose.stacks-apply.yml up -d
+#
+# WARNING: to create containers, SelfDock needs permission to create containers. Anyone who can log in to the dashboard
+# can then start a container that mounts the host's disk, which is the same as full control of the server.
+# The proxy below still keeps SelfDock off the rest of the Docker API (Swarm, secrets, plugins...) but it
+# can no longer protect the host from someone who has the dashboard password. Use a strong password,
+# and do not expose the dashboard to the internet without HTTPS.
+services:
+  selfdock:
+    environment:
+      FLORIA_STACKS_APPLY: "1"
+
+  docker-proxy:
+    environment:
+      POST: 1        # allow creating and changing things
+      IMAGES: 1      # pull images
+      NETWORKS: 1    # create the stack's networks
+      VOLUMES: 1     # create the stack's volumes
+      INFO: 1        # the docker CLI asks for this
