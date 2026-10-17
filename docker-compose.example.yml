@@ -1,0 +1,47 @@
+# Floria SelfDock - Exemplo de configuração com proxy
+name: floria-selfdock
+
+services:
+  selfdock:
+    build: .
+    container_name: floria-selfdock
+    restart: unless-stopped
+    ports:
+      - "${SELFDOCK_PORT:-3000}:3000"
+    environment:
+      DOCKER_HOST: tcp://docker-proxy:2375
+      TZ: ${TZ:-UTC}
+      FLORIA_STACKS_DIR: /path/to/your/stacks
+    volumes:
+      - selfdock-data:/data
+      - /path/to/your/stacks:/path/to/your/stacks
+    labels:
+      floria.hide: "true"
+    depends_on:
+      - docker-proxy
+    networks:
+      - default
+      - docker-api
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: floria-selfdock-docker-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      POST: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-api
+
+networks:
+  docker-api:
+    internal: true
+
+volumes:
+  selfdock-data:

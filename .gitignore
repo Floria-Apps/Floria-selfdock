@@ -4,3 +4,6 @@ data
 .env
 *.log
 .DS_Store
+
+# Ignorar compose local com caminhos pessoais
+docker-compose.yml
