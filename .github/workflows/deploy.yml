@@ -4,12 +4,14 @@
 #   push of tag v1.2.3 -> :1.2.3  :1.2  :1  :latest  + a GitHub Release with ready-to-run compose files
 #
 # To release a version:  git tag v0.1.0 && git push origin v0.1.0
-name: Deploy
+name: "Deploy"
 
-on:
+'on':
   push:
-    branches: [main]
-    tags: ['v*']
+    branches:
+      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -20,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # The registry requires a lowercase image name.
+  
   IMAGE: ghcr.io/${{ github.repository_owner }}/floria-selfdock
 
 jobs:

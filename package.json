@@ -4,8 +4,13 @@
   "private": true,
   "type": "module",
   "description": "A friendly self-hosted Docker dashboard in Material 3 Expressive style. Part of FloriaApps.",
-  "workspaces": ["apps/server", "apps/web"],
-  "engines": { "node": ">=22.13" },
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "concurrently -k -n servidor,web -c blue,green \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
     "dev:demo": "cross-env FLORIA_DEMO=1 npm run dev",
@@ -15,7 +20,7 @@
     "start": "node apps/server/dist/index.js"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
-    "cross-env": "^7.0.3"
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0"
   }
 }
