@@ -15,7 +15,7 @@
     "start": "node apps/server/dist/index.js"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "concurrently": "^10.0.6",
     "cross-env": "^7.0.3"
   }
 }
