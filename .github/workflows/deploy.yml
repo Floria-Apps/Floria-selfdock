@@ -1,10 +1,4 @@
-# Deploy: publish the Docker image to GitHub Container Registry and, for version tags, create a GitHub Release.
-#
-#   push to main      -> ghcr.io/floriaapps/floria-selfdock:edge  (and :sha-<commit>)
-#   push of tag v1.2.3 -> :1.2.3  :1.2  :1  :latest  + a GitHub Release with ready-to-run compose files
-#
-# To release a version:  git tag v0.1.0 && git push origin v0.1.0
-name: "Deploy"
+name: Deploy
 
 'on':
   push:
@@ -12,18 +6,23 @@ name: "Deploy"
       - main
     tags:
       - 'v*'
+
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Existing version tag without v (e.g. 0.2.0). Leave empty for a normal build.'
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ github.ref }}-${{ inputs.release_version }}
   cancel-in-progress: false
 
 env:
-  
-  IMAGE: ghcr.io/${{ github.repository_owner }}/floria-selfdock
+  IMAGE: ghcr.io/floria-apps/floria-selfdock
 
 jobs:
   ci:
@@ -31,21 +30,31 @@ jobs:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+    with:
+      ref: ${{ inputs.release_version != '' && format('refs/tags/v{0}', inputs.release_version) || github.ref }}
 
   publish:
     name: Publish image (amd64 + arm64)
     needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
     permissions:
       contents: read
       packages: write
-    steps:
-      - uses: actions/checkout@v7
 
-      # QEMU lets the amd64 runner produce the arm64 image (Raspberry Pi and other ARM servers).
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_version != '' && format('refs/tags/v{0}', inputs.release_version) || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -58,16 +67,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
+          context: git
           images: ${{ env.IMAGE }}
+          flavor: |
+            latest=auto
           tags: |
-            type=edge,branch=main
+            type=edge,branch=main,enable=${{ inputs.release_version == '' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(inputs.release_version, '0.') && !startsWith(github.ref_name, 'v0.') }}
             type=sha
           labels: |
             org.opencontainers.image.title=Floria SelfDock
-            org.opencontainers.image.description=A friendly self-hosted Docker dashboard, in Material 3 Expressive style
+            org.opencontainers.image.description=A friendly self-hosted Docker dashboard in Material 3 Expressive style
             org.opencontainers.image.vendor=FloriaApps
 
       - name: Build and push
@@ -87,10 +99,11 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "### Published"
+            echo "### Published Docker image"
             echo
             echo "Digest: \`${{ steps.push.outputs.digest }}\`"
             echo
+            echo "Tags:"
             echo '```'
             echo "${{ steps.meta.outputs.tags }}"
             echo '```'
@@ -99,42 +112,62 @@ jobs:
   release:
     name: GitHub Release
     needs: publish
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.release_version != '')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     permissions:
       contents: write
-    steps:
-      - uses: actions/checkout@v7
 
-      # The compose files in the repository build the image from source. For a release we swap that for the
-      # published image, so people can run them without building anything.
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_version != '' && format('refs/tags/v{0}', inputs.release_version) || github.ref }}
+          fetch-depth: 0
+
       - name: Prepare the release files
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.release_version != '' && format('v{0}', inputs.release_version) || github.ref_name }}
         run: |
           VERSION="${TAG#v}"
           mkdir release
-          for f in docker-compose.yml docker-compose.simple.yml; do
-            sed -e '/# image: ghcr.io/d' \
-                -e "s#^    build: \.#    image: ${IMAGE}:${VERSION}#" \
-                "$f" > "release/$f"
-            grep -q "image: ${IMAGE}:${VERSION}" "release/$f" || { echo "image line missing in $f"; exit 1; }
-          done
-          # GitHub drops the leading dot from asset names, so we publish it as env.example.
-          cp .env.example release/env.example
-          # Optional add-ons: they only add settings, so they need no image line.
-          cp docker-compose.stacks.yml docker-compose.stacks-apply.yml release/
 
-      - name: Create the release
+          for f in docker-compose.yml docker-compose.simple.yml; do
+            sed \
+              -e '/# image: ghcr.io/d' \
+              -e "s#^    build: \.#    image: ${IMAGE}:${VERSION}#" \
+              "$f" > "release/$f"
+
+            grep -q "image: ${IMAGE}:${VERSION}" "release/$f" || {
+              echo "Image line missing in $f"
+              exit 1
+            }
+          done
+
+          cp .env.example release/env.example
+          cp docker-compose.stacks.yml release/docker-compose.stacks-apply.yml
+
+      - name: Create or update the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.release_version != '' && format('v{0}', inputs.release_version) || github.ref_name }}
         run: |
           flags=()
-          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
-          gh release create "$TAG" release/* \
-            --verify-tag \
-            --generate-notes \
-            --title "Floria SelfDock $TAG" \
-            "${flags[@]}"
+
+          case "$TAG" in
+            *-*) flags+=(--prerelease) ;;
+          esac
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Updating its assets."
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* \
+              --verify-tag \
+              --generate-notes \
+              --title "Floria SelfDock $TAG" \
+              "${flags[@]}"
+          fi
