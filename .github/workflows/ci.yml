@@ -81,4 +81,32 @@ jobs:
             --name selfdock \
             -p 3000:3000 \
             -e FLORIA_DEMO=1 \
-            floria
+            floria-selfdock:ci
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health | grep -q '"ok":true'; then
+              echo "Healthy after ${i}s"
+              break
+            fi
+
+            if [ "$i" = 30 ]; then
+              echo "The container did not become healthy in 30 s"
+              docker logs selfdock
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          # The dashboard is served.
+          curl -fsS -o /dev/null http://127.0.0.1:3000/
+
+          # The API refuses anonymous requests.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/services)" = 401
+
+      - name: The image can run docker compose
+        run: docker run --rm --entrypoint docker floria-selfdock:ci compose version
+
+      - name: Show container logs if something failed
+        if: failure()
+        run: docker logs selfdock || true
