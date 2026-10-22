@@ -7,3 +7,4 @@ data
 
 # Ignorar compose local com caminhos pessoais
 docker-compose.yml
+docker-compose.prod.yml

@@ -19,7 +19,7 @@ import { StackStore } from './stacks';
 import { StackJobs } from './stack-jobs';
 import { registerStackRoutes } from './stacks-routes';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 async function main() {
   const db = openDb(config.dataDir);

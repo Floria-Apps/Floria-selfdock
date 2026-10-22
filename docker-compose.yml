@@ -1,10 +1,9 @@
-
-# Floria SelfDock with a restricted Docker proxy
+# Floria SelfDock using the published GHCR image
 name: floria-selfdock
 
 services:
   selfdock:
-    build: .
+    image: ghcr.io/floria-apps/floria-selfdock:latest
     container_name: floria-selfdock
     restart: unless-stopped
     ports:
