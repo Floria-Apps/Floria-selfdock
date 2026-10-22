@@ -1,6 +1,6 @@
 # Floria SelfDock ⚓
 
-> Open-source software, built with simplicity in mind. — [Floria-Apps](https://github.com/Floria-Apps)
+> Open-source software, built with simplicity in mind. — [FloriaApps](https://github.com/FloriaApps)
 
 [![Deploy](https://github.com/FloriaApps/Floria-selfdock/actions/workflows/deploy.yml/badge.svg)](https://github.com/FloriaApps/Floria-selfdock/actions/workflows/deploy.yml)
 
@@ -8,7 +8,7 @@
 
 A friendly, [Material Design 3](https://m3.material.io) dashboard for your home lab. It finds the apps running in your Docker, keeps their status up to date in real time, and lets you start, stop and restart each one with a tap. Built for people who would rather not edit YAML files.
 
-SelfDock is the **web and Docker** counterpart of [Floria SelfHub](https://github.com/Floria-Apps/Floria-selfhub), the desktop app: same idea, different home.
+SelfDock is the **web and Docker** counterpart of [Floria SelfHub](https://github.com/FloriaApps/Floria-selfhub), the desktop app: same idea, different home.
 
 ## What it does
 

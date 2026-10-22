@@ -75,7 +75,7 @@ export default function App() {
     setBootError('');
     api.authState()
       .then(st => { useStore.setState({ demo: st.demo }); setAuth(st.setupRequired ? 'setup' : st.user ? 'ready' : 'login', st.user?.username ?? null); })
-      .catch(e => setBootError(e instanceof Error ? e.message : 'Erro desconhecido.'));
+      .catch(e => setBootError(e instanceof Error ? e.message : t('err.generic')));
   };
   useEffect(boot, []); // eslint-disable-line react-hooks/exhaustive-deps
 

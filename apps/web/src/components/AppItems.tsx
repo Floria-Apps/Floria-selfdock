@@ -50,7 +50,11 @@ export function AppRow({ service, showPort, logos }: Props) {
   useT();
   const off = service.status === 'offline';
   return (
-    <M3eListItem className="cursor-pointer" onClick={() => openApp(service)}>
+    <M3eListItem className="cursor-pointer" role="button" tabIndex={0} onClick={() => openApp(service)}
+      onKeyDown={e => {
+        // Only for keys pressed on the row itself, not on the ⋮ button inside it
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openApp(service); }
+      }}>
       <span slot="leading"><AppIcon service={service} size={40} radius={20} logos={logos} /></span>
       <span className={off ? 'text-on-surface-variant' : ''}>{service.name}</span>
       <span slot="supporting-text">{describeService(service)}</span>

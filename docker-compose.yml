@@ -1,9 +1,14 @@
-# Floria SelfDock using the published GHCR image
+# Floria SelfDock with a "doorman" in front of Docker (recommended).
+#
+# SelfDock never receives the Docker socket. It talks to docker-socket-proxy, which only lets through what the
+# dashboard needs: list containers, follow events, read logs and start/stop/restart.
+# Creating or deleting containers and running commands inside them stays blocked.
 name: floria-selfdock
 
 services:
   selfdock:
-    image: ghcr.io/floria-apps/floria-selfdock:latest
+    build: .
+    # image: ghcr.io/floriaapps/floria-selfdock:0.1.0   # once you publish the image, replace "build" with this line
     container_name: floria-selfdock
     restart: unless-stopped
     ports:
@@ -11,37 +16,35 @@ services:
     environment:
       DOCKER_HOST: tcp://docker-proxy:2375
       TZ: ${TZ:-UTC}
-      FLORIA_STACKS_DIR: /home/talona/Documentos/docker1
+      # To measure the real disk (not just SelfDock's volume), uncomment this line and the "/:/host:ro" volume below:
+      # DISK_PATH: /host
     volumes:
       - selfdock-data:/data
-      - /home/talona/Documentos/docker1:/home/talona/Documentos/docker1
+      # - /:/host:ro
     labels:
-      floria.hide: "true"
+      floria.hide: "true"   # SelfDock does not list itself on the dashboard
     depends_on:
       - docker-proxy
-    networks:
-      - default
-      - docker-api
+    networks: [default, docker-api]
 
   docker-proxy:
     image: tecnativa/docker-socket-proxy:0.3.0
     container_name: floria-selfdock-docker-proxy
     restart: unless-stopped
     environment:
-      CONTAINERS: 1
-      EVENTS: 1
-      POST: 1
-      ALLOW_START: 1
-      ALLOW_STOP: 1
-      ALLOW_RESTARTS: 1
+      CONTAINERS: 1        # list containers and read logs
+      EVENTS: 1            # follow changes in real time
+      POST: 0              # block everything else that changes things...
+      ALLOW_START: 1       # ...except starting
+      ALLOW_STOP: 1        # ...stopping
+      ALLOW_RESTARTS: 1    # ...and restarting (this group also includes "kill")
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - docker-api
+    networks: [docker-api]
 
 networks:
   docker-api:
-    internal: true
+    internal: true   # no internet or LAN access: only SelfDock talks to the proxy
 
 volumes:
   selfdock-data:
