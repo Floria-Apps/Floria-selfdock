@@ -1,7 +1,9 @@
 /** English strings. This is the source of truth: the key list below defines what must be translated. */
 export const en = {
   // navigation and header
-  'nav.home': 'Home', 'nav.alerts': 'Alerts', 'nav.history': 'History', 'nav.settings': 'Settings',
+  'nav.home': 'Home', 'nav.alerts': 'Alerts', 'nav.uptime': 'Uptime', 'nav.history': 'History', 'nav.settings': 'Settings',
+  'nav.aria': 'Main navigation',
+  'nav.workspace': 'Workspace', 'nav.manage': 'Manage',
   'search.placeholder': 'Search apps', 'search.clear': 'Clear search',
   'theme.toLight': 'Use light theme', 'theme.toDark': 'Use dark theme', 'account.label': 'Account: {name}',
   'conn.reconnecting': 'Reconnecting to the server. What you see may be out of date.',
@@ -19,6 +21,7 @@ export const en = {
   // categories and layout
   'category.media': 'Media', 'category.home': 'Home', 'category.network': 'Network', 'category.files': 'Files',
   'category.security': 'Security', 'category.other': 'Other', 'category.all': 'All', 'category.label': 'Category',
+  'category.arr': 'Arr',
   'filter.aria': 'Filter by category', 'layout.grid': 'View as cards', 'layout.list': 'View as list',
 
   // hero
@@ -32,6 +35,8 @@ export const en = {
   // alerts
   'alerts.title': 'Needs attention', 'alerts.viewAll': 'View all {n} alerts', 'alerts.none': 'No alerts for now',
   'alerts.noneText': 'When an app goes down or the disk is filling up, the alert shows up here.',
+  'alerts.count_one': '1 alert', 'alerts.count_other': '{n} alerts', 'alerts.summary': 'Review active issues and take action.',
+  'alerts.severity.error': 'Critical', 'alerts.severity.warning': 'Warning',
   'alerts.dismissed': 'Alert dismissed.',
   'alert.disk.title': 'Disk is {percent}% full', 'alert.disk.text': '{free} left. Delete old files or add space before it fills up.',
   'alert.ram.title': 'Memory is {percent}% full', 'alert.ram.text': 'The server is almost out of free memory. An app may be killed.',
@@ -48,7 +53,8 @@ export const en = {
   'cause.user': 'You stopped it from SelfDock.',
 
   // server section
-  'server.title': 'Your server', 'server.disk': 'Disk', 'server.free': '{size} free', 'server.memory': 'Memory',
+  'server.title': 'Your server', 'server.expandHint': 'View disk, memory, and processor usage', 'server.attention': 'Attention',
+  'server.disk': 'Disk', 'server.free': '{size} free', 'server.memory': 'Memory',
   'server.memoryOf': 'of {size}', 'server.cpu': 'Processor', 'server.now': 'right now',
 
   // docker banner
@@ -95,12 +101,43 @@ export const en = {
   'logs.title': 'Logs of {name}', 'logs.empty': 'This app has not written anything yet.', 'logs.copied': 'Logs copied.',
 
   // history
-  'history.availability': 'Availability', 'history.availabilityHelp': 'How long each app was running.',
-  'history.since': 'SelfDock started tracking on {date} at {time}.',
+  'history.availability': 'Availability', 'history.availabilityHelp': 'Service uptime · planned stops do not count as downtime.',
+  'history.since': 'Tracking since {date} at {time}.',
   'history.plannedNote': 'Stops you requested from the dashboard do not count as downtime.',
+  'history.trackedApps': 'Tracked apps', 'history.appsTracked': 'Services with availability history',
+  'history.avgAvailability': 'Average availability', 'history.avgAvailabilityDetail': 'Across tracked apps · 7 days',
+  'history.activeIncidents': 'Active outages', 'history.activeIncidentsDetail': 'Planned stops are excluded',
+  'history.openNow': 'Currently unavailable',
+  'history.filterLabel': 'Filter events', 'history.filterAll': 'All events', 'history.filterActive': 'Active outages',
+  'history.filterPlanned': 'Planned stops', 'history.filterResolved': 'Recovered',
+  'history.filterEmpty': 'No events in this filter', 'history.filterEmptyText': 'Choose another filter to see more history.',
   'history.noApps': 'There are no apps to track yet.', 'history.none7d': 'No downtime in 7 days',
   'history.incidents7d_one': '1 downtime in 7 days', 'history.incidents7d_other': '{n} downtimes in 7 days',
-  'history.h24': '24 h', 'history.d7': '7 days', 'history.events': 'Events',
+  'history.timelineLabel': 'Availability over the last 7 days, in 4-hour periods',
+  'history.timeline.up': 'Running',
+  'history.timeline.down': 'Downtime',
+  'history.timeline.planned': 'Planned stop',
+  'history.timeline.untracked': 'Not monitored',
+  'uptime.search': 'Search services',
+  'uptime.filterLabel': 'Filter services by availability',
+  'uptime.filterAll': 'All',
+  'uptime.filterAttention': 'Needs attention',
+  'uptime.filterHealthy': 'Healthy',
+  'uptime.serviceCount': 'Showing {count} of {total} services',
+  'uptime.noMatch': 'No services found',
+  'uptime.noMatchHelp': 'Try changing your search or filter.',
+  'uptime.summaryHelp': 'Availability and downtime over the last 24 hours and 7 days.',
+  'uptime.timelineHelp': 'Last 7 days · each bar represents 4 hours:',
+  'uptime.timelineInterval': '4-hour period',
+  'uptime.timelineStart': '7 days ago',
+  'uptime.timelineEnd': 'now',
+  'uptime.availabilityPeriod': 'Availability · {period}',
+  'uptime.downtime': 'Downtime: {duration}',
+  'uptime.downFor': 'Down since {date} at {time} · for {duration}',
+  'uptime.stoppedFor': 'Planned stop since {date} at {time} · for {duration}',
+  'history.h24': '24 h', 'history.d7': '7 days', 'history.down24h': 'Downtime · 24 h', 'history.down7d': 'Downtime · 7 days',
+  'history.eventCount_one': '1 event', 'history.eventCount_other': '{n} events', 'history.events': 'Events',
+  'history.downtime': 'Downtime: {h24} in 24 h · {d7} in 7 days',
   'history.noEvents': 'No events recorded',
   'history.noEventsText': 'When an app goes down, comes back or is stopped by you, the record shows up here.',
   'history.youStopped': 'You stopped {name}',
@@ -109,6 +146,8 @@ export const en = {
   'history.kind.starting': '{name} was slow to become ready', 'history.kind.default': '{name} was unavailable',
   'history.since.open': 'since {from}', 'history.range': 'from {from} to {to} ({dur})',
   'history.stillStopped': '(still stopped)', 'history.stillDown': '(still down)',
+  'history.stillDownDuration': 'down for {dur}',
+  'updates.available': 'Update available',
 
   // settings
   'settings.appearance': 'Appearance',

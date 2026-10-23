@@ -3,7 +3,7 @@ import { api, ApiError } from './api';
 import { tr, type Key } from './i18n';
 import { useStore } from './store';
 
-const say = (t: string) => useStore.getState().say(t);
+const say = (t: string, tone?: 'info' | 'success' | 'error') => useStore.getState().say(t, tone);
 
 /** Turns any error into text in the user's language, using the server's error code when there is one. */
 export function errorText(e: unknown): string {
@@ -18,9 +18,9 @@ export function errorText(e: unknown): string {
 export async function runAction(s: Service, action: Action) {
   try {
     await api.act(s.id, action);
-    say(tr(`action.done.${action}` as Key, { name: s.name }));
+    say(tr(`action.done.${action}` as Key, { name: s.name }), 'success');
   } catch (e) {
-    say(errorText(e));
+    say(errorText(e), 'error');
   }
 }
 

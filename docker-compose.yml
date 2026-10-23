@@ -8,7 +8,7 @@ name: floria-selfdock
 services:
   selfdock:
     build: .
-    # image: ghcr.io/floriaapps/floria-selfdock:0.1.0   # once you publish the image, replace "build" with this line
+    # image: ghcr.io/floria-apps/floria-selfdock:0.1.0   # once you publish the image, replace "build" with this line
     container_name: floria-selfdock
     restart: unless-stopped
     ports:
@@ -33,6 +33,7 @@ services:
     restart: unless-stopped
     environment:
       CONTAINERS: 1        # list containers and read logs
+      IMAGES: 1            # read local and registry image digests to flag available updates
       EVENTS: 1            # follow changes in real time
       POST: 0              # block everything else that changes things...
       ALLOW_START: 1       # ...except starting

@@ -17,6 +17,7 @@ const mk = (name: string, image: string, ports: [number, number][], extra: Parti
   id: createHash('sha256').update(name).digest('hex'),
   name, image, labels: {}, ports: ports.map(([priv, pub]) => ({ priv, pub })), state: 'running', since: Date.now() - 3 * 3600_000, ...extra,
 });
+const imageDigest = (value: string) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
 
 export function seedContainers(): Mock[] {
   return [
@@ -99,6 +100,24 @@ export async function startMockDocker(opts: { crashes?: boolean } = {}) {
       streams.add(res);
       req.on('close', () => streams.delete(res));
       return;
+    }
+
+    const imageInspect = p.match(/^\/images\/(.+)\/json$/);
+    if (imageInspect) {
+      const reference = decodeURIComponent(imageInspect[1]);
+      const c = containers.find(item => item.image === reference);
+      if (!c) return json(404, { message: `No such image: ${reference}` });
+      const repo = reference.replace(/:[^/:]+$/, '');
+      return json(200, { Id: imageDigest(c.image), RepoDigests: [`${repo}@${imageDigest(c.image)}`] });
+    }
+
+    const distribution = p.match(/^\/distribution\/(.+)\/json$/);
+    if (distribution) {
+      const reference = decodeURIComponent(distribution[1]);
+      const c = containers.find(item => item.image === reference);
+      if (!c) return json(404, { message: `No such image: ${reference}` });
+      const digest = imageDigest(c.name === 'my-app' ? `${c.image}-updated` : c.image);
+      return json(200, { Descriptor: { digest } });
     }
 
     const m = p.match(/^\/containers\/([^/]+)\/(json|start|stop|restart|logs)$/);

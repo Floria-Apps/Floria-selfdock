@@ -1,11 +1,12 @@
-/** `t` is the tonal colour number used for the icon (--t1-bg ... --t6-bg). Names live in the dashboard's translations. */
+/** `t` is the tonal colour number used for the icon (--t1-bg ... --t7-bg). Names live in the dashboard's translations. */
 export const CATEGORIES = [
   { id: 'media', t: 1 },
   { id: 'home', t: 2 },
   { id: 'network', t: 3 },
   { id: 'files', t: 4 },
   { id: 'security', t: 5 },
-  { id: 'other', t: 6 },
+  { id: 'arr', t: 6 },
+  { id: 'other', t: 7 },
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]['id'];

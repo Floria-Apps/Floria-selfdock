@@ -18,6 +18,7 @@ SelfDock is the **web and Docker** counterpart of [Floria SelfHub](https://githu
 - **Start, stop and restart**, with confirmation, plus **logs**.
 - **Server metrics.** Disk, memory and processor.
 - **Downtime history.** When each app went down, why (e.g. "ran out of memory") and for how long. Shows availability over 24 hours and 7 days. Stops you requested from the dashboard do not count as downtime.
+- **Image updates.** Checks public registry digests and marks containers whose image has a newer version available. The Docker socket proxy must allow read-only image metadata (`IMAGES=1`); private registries may not be checkable.
 - **Alerts.** An app stopped, an app failing its health check, an app restarting in a loop, disk or memory almost full.
 - **Compose and `.env` editor.** Edit your stacks' files in the browser, with checks as you type (including ports already in use) and automatic backups. See [below](#edit-compose-and-env-files-stack-editor).
 - **Services outside Docker** (router, NAS...). Add the address and SelfDock checks that it is up.
@@ -48,7 +49,7 @@ curl -L  https://github.com/FloriaApps/Floria-selfdock/releases/latest/download/
 docker compose up -d
 ```
 
-Image tags on `ghcr.io/floriaapps/floria-selfdock`: `latest` (newest release), `0.1.0` (a specific version) and `edge` (the current `main` branch).
+Image tags on `ghcr.io/floria-apps/floria-selfdock`: `latest` (newest release), `0.1.0` (a specific version) and `edge` (the current `main` branch).
 
 ### From source
 
@@ -59,7 +60,7 @@ docker compose up -d --build
 
 Open `http://SERVER-IP:3000` and create your account on first use.
 
-The `docker-compose.yml` also starts **docker-socket-proxy**, a "doorman" that only lets SelfDock list containers, read logs and start/stop/restart them. SelfDock itself never receives the Docker socket.
+The `docker-compose.yml` also starts **docker-socket-proxy**, a "doorman" that only lets SelfDock list containers, read logs, check image metadata, and start/stop/restart them. SelfDock itself never receives the Docker socket.
 
 > **About `:ro` on the socket.** Mounting `/var/run/docker.sock:ro` does **not** make Docker read-only: `:ro` only protects the socket file, and the API still accepts any command. Whoever can reach the socket controls the whole machine. That is why the default compose file uses the proxy. `docker-compose.simple.yml` (direct socket) exists only for trusted home networks.
 
@@ -72,7 +73,7 @@ Everything is automatic, but you can fine-tune it with **labels** on the contain
 | `floria.name` | Display name | `My Library` |
 | `floria.description` | Short line under the name | `Movies and TV shows` |
 | `floria.icon` | Icon from dashboard-icons | `jellyfin` |
-| `floria.category` | `media`, `home`, `network`, `files`, `security` or `other` | `media` |
+| `floria.category` | `media`, `home`, `network`, `files`, `security`, `arr` or `other` | `media` |
 | `floria.port` | Port to open (useful with `network_mode: host`) | `8123` |
 | `floria.url` | Full address (if you use a reverse proxy) | `https://movies.home.lan` |
 | `floria.hide` | Do not show this container | `true` |

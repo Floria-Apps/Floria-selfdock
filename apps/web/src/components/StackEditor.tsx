@@ -19,17 +19,17 @@ const ACTIONS: { id: StackAction; icon: string }[] = [
   { id: 'up', icon: 'rocket_launch' }, { id: 'pull', icon: 'cloud_download' }, { id: 'restart', icon: 'restart_alt' },
   { id: 'stop', icon: 'stop_circle' }, { id: 'down', icon: 'delete_sweep' },
 ];
-const say = (text: string) => useStore.getState().say(text);
+const say = (text: string, tone?: 'info' | 'success' | 'error') => useStore.getState().say(text, tone);
 
 /* ---------- previous versions ---------- */
 function VersionsDialog({ name, onLoad, onClose }: { name: string; onLoad: (file: 'compose' | 'env', content: string) => void; onClose: () => void }) {
   const t = useT();
   const [list, setList] = useState<StackBackup[] | null>(null);
-  useEffect(() => { api.stackBackups(name).then(setList).catch(e => { say(errorText(e)); setList([]); }); }, [name]);
+  useEffect(() => { api.stackBackups(name).then(setList).catch(e => { say(errorText(e), 'error'); setList([]); }); }, [name]);
 
   const load = async (b: StackBackup) => {
-    try { onLoad(b.file, (await api.stackBackup(name, b.id)).content); say(t('versions.loaded')); onClose(); }
-    catch (e) { say(errorText(e)); }
+    try { onLoad(b.file, (await api.stackBackup(name, b.id)).content); say(t('versions.loaded'), 'success'); onClose(); }
+    catch (e) { say(errorText(e), 'error'); }
   };
   return (
     <Dialog title={t('versions.title')} icon="history" onClose={onClose} actions={<Btn variant="tonal" onClick={onClose}>{t('common.close')}</Btn>}>
@@ -121,10 +121,10 @@ export default function StackEditor({ name, onClose }: { name: string; onClose: 
       if (env !== (files.env ?? '')) { body.env = env; body.envHash = files.envHash; }
       const next = await api.saveStack(name, body);
       setFiles(next); setCompose(next.compose); setEnv(next.env ?? '');
-      say(t('editor.saved'));
+      say(t('editor.saved'), 'success');
       return true;
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'stack_conflict') setConflict(true); else say(errorText(e));
+      if (e instanceof ApiError && e.code === 'stack_conflict') setConflict(true); else say(errorText(e), 'error');
       return false;
     } finally { setSaving(false); }
   }, [files, saving, dirty, compose, env, name, t]);
@@ -138,7 +138,7 @@ export default function StackEditor({ name, onClose }: { name: string; onClose: 
     setConfirm(null);
     if (dirty && !(await save())) return;
     try { await api.applyStack(name, action); setPanel('output'); setCollapsed(false); }
-    catch (e) { say(errorText(e)); }
+    catch (e) { say(errorText(e), 'error'); }
   };
   const pick = (action: StackAction) => { if (action === 'pull') void run(action); else setConfirm(action); };
 

@@ -18,6 +18,7 @@ O SelfDock é a versão **web e Docker** do [Floria SelfHub](https://github.com/
 - **Iniciar, parar e reiniciar**, com confirmação, e **ver registros (logs)**.
 - **Métricas do servidor:** disco, memória e processador.
 - **Histórico de quedas:** quando cada app caiu, por quê (ex.: "ficou sem memória") e quanto tempo ficou fora. Mostra a disponibilidade em 24 h e 7 dias. Paradas que você pediu pelo painel não contam como queda.
+- **Atualizações de imagem:** consulta digests de registros públicos e sinaliza containers com uma versão mais nova disponível. O proxy do socket Docker precisa permitir leitura dos metadados de imagens (`IMAGES=1`); registros privados podem não permitir a consulta.
 - **Avisos:** app que parou, app com a verificação de saúde falhando, app reiniciando em loop, disco ou memória quase cheios.
 - **Editor de compose e `.env`:** edite os arquivos das suas stacks no navegador, com verificação enquanto digita (inclusive portas já em uso) e backups automáticos. Veja [abaixo](#editar-arquivos-compose-e-env-editor-de-stacks).
 - **Serviços fora do Docker** (roteador, NAS...): você adiciona o endereço e o SelfDock testa se está no ar.
@@ -48,7 +49,7 @@ curl -L  https://github.com/FloriaApps/Floria-selfdock/releases/latest/download/
 docker compose up -d
 ```
 
-Tags da imagem em `ghcr.io/floriaapps/floria-selfdock`: `latest` (a release mais nova), `0.1.0` (uma versão específica) e `edge` (a branch `main` atual).
+Tags da imagem em `ghcr.io/floria-apps/floria-selfdock`: `latest` (a release mais nova), `0.1.0` (uma versão específica) e `edge` (a branch `main` atual).
 
 ### A partir do código-fonte
 
@@ -59,7 +60,7 @@ docker compose up -d --build
 
 Abra `http://IP-DO-SERVIDOR:3000` e crie o seu acesso no primeiro uso.
 
-O `docker-compose.yml` sobe também o **docker-socket-proxy**, um "porteiro" que só deixa o SelfDock listar containers, ler registros e ligar/parar/reiniciar. O SelfDock nunca recebe o socket do Docker.
+O `docker-compose.yml` sobe também o **docker-socket-proxy**, um "porteiro" que só deixa o SelfDock listar containers, ler registros, consultar metadados das imagens e ligar/parar/reiniciar. O SelfDock nunca recebe o socket do Docker.
 
 > **Sobre o `:ro` no socket.** Montar `/var/run/docker.sock:ro` **não** deixa o Docker em modo somente leitura: o `:ro` só protege o arquivo do socket, e a API continua aceitando qualquer comando. Quem acessa o socket controla a máquina inteira. Por isso o compose padrão usa o proxy. O `docker-compose.simple.yml` (socket direto) existe só para redes domésticas de confiança.
 
@@ -72,7 +73,7 @@ Tudo é automático, mas você pode ajustar com **labels** no container:
 | `floria.name` | Nome exibido | `Minha Biblioteca` |
 | `floria.description` | Frase curta embaixo do nome | `Filmes e séries` |
 | `floria.icon` | Ícone do dashboard-icons | `jellyfin` |
-| `floria.category` | `media`, `home`, `network`, `files`, `security` ou `other` | `media` |
+| `floria.category` | `media`, `home`, `network`, `files`, `security`, `arr` ou `other` | `media` |
 | `floria.port` | Porta a abrir (útil com `network_mode: host`) | `8123` |
 | `floria.url` | Endereço completo (se usa proxy reverso) | `https://filmes.casa.lan` |
 | `floria.hide` | Não mostrar este container | `true` |

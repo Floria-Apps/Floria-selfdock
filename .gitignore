@@ -4,6 +4,8 @@ data
 .env
 *.log
 .DS_Store
-# Ignorar compose local com caminhos pessoais
-docker-compose.yml
+# Compose files with machine-specific paths
+docker-compose.local.yml
+docker-compose.override.yml
+docker-compose.prod.override.yml
 docker-compose.prod.yml

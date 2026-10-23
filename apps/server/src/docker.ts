@@ -80,6 +80,18 @@ export class DockerClient {
     return list[0] ?? null;
   }
 
+  async imageUpdateStatus(reference: string): Promise<'current' | 'outdated'> {
+    if (reference.includes('@sha256:')) return 'current';
+    const encoded = encodeURIComponent(reference);
+    const [local, remote] = await Promise.all([
+      this.json<{ RepoDigests?: string[] }>(`/images/${encoded}/json`),
+      this.json<{ Descriptor?: { digest?: string } }>(`/distribution/${encoded}/json`),
+    ]);
+    const remoteDigest = remote.Descriptor?.digest;
+    if (!remoteDigest || !local.RepoDigests?.length) throw new Error('Image digest is unavailable.');
+    return local.RepoDigests.some(repoDigest => repoDigest.endsWith(`@${remoteDigest}`)) ? 'current' : 'outdated';
+  }
+
   /** 204 (done) and 304 (already in that state) both mean success. */
   async action(id: string, action: 'start' | 'stop' | 'restart'): Promise<void> {
     const q = action === 'start' ? '' : '?t=10';
@@ -97,9 +109,14 @@ export class DockerClient {
   /** Stays open receiving container events. Resolves when the connection closes. */
   events(onEvent: (e: DockerEvent) => void, signal: AbortSignal, onOpen: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (signal.aborted) { resolve(); return; }
       const filters = encodeURIComponent(JSON.stringify({ type: ['container'] }));
       const req = http.request({ ...this.target, method: 'GET', path: `/events?filters=${filters}`, headers: { Host: 'docker' } }, res => {
-        if ((res.statusCode ?? 0) >= 400) { reject(new DockerError(res.statusCode ?? 0, 'Could not subscribe to Docker events.')); res.resume(); return; }
+        if ((res.statusCode ?? 0) >= 400) {
+          res.resume();
+          finish(new DockerError(res.statusCode ?? 0, 'Could not subscribe to Docker events.'));
+          return;
+        }
         onOpen();
         let buf = '';
         res.setEncoding('utf8');
@@ -113,11 +130,23 @@ export class DockerClient {
             try { onEvent(JSON.parse(line) as DockerEvent); } catch { /* incomplete or unexpected line */ }
           }
         });
-        res.on('end', resolve);
-        res.on('error', reject);
+        res.on('end', () => finish());
+        res.on('error', finish);
       });
-      req.on('error', err => (signal.aborted ? resolve() : reject(err)));
-      signal.addEventListener('abort', () => req.destroy(), { once: true });
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', onAbort);
+        if (error) reject(error);
+        else resolve();
+      };
+      const onAbort = () => {
+        req.destroy();
+        finish();
+      };
+      req.on('error', err => finish(signal.aborted ? undefined : err));
+      signal.addEventListener('abort', onAbort, { once: true });
       req.end();
     });
   }
@@ -127,10 +156,12 @@ export class DockerClient {
 export function demuxDockerLogs(buf: Buffer): string {
   const out: string[] = [];
   let i = 0;
-  while (i + 8 <= buf.length) {
+  while (i < buf.length) {
+    if (i + 8 > buf.length) return buf.toString('utf8');
     const type = buf[i];
     if (type > 2 || buf[i + 1] !== 0 || buf[i + 2] !== 0 || buf[i + 3] !== 0) return buf.toString('utf8');
     const size = buf.readUInt32BE(i + 4);
+    if (i + 8 + size > buf.length) return buf.toString('utf8');
     out.push(buf.subarray(i + 8, i + 8 + size).toString('utf8'));
     i += 8 + size;
   }

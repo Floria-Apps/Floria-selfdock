@@ -51,4 +51,4 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The **Deploy** workflow publishes the image to `ghcr.io/floriaapps/floria-selfdock` (amd64 and arm64) and creates a GitHub Release with ready-to-run compose files.
+The **Deploy** workflow publishes the image to `ghcr.io/floria-apps/floria-selfdock` (amd64 and arm64) and creates a GitHub Release with ready-to-run compose files.

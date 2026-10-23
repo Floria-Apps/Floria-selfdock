@@ -34,6 +34,16 @@ export function computeAvailability(db: DB, services: Service[], trackedSince: n
     }
     return Math.round(Math.max(0, 100 - (down / span) * 100) * 100) / 100;
   };
+  const downtime = (key: string, windowMs: number) => {
+    const start = Math.max(now - windowMs, trackedSince);
+    let down = 0;
+    for (const r of rows) {
+      if (r.service_key !== key) continue;
+      const a = Math.max(r.started_at, start), b = Math.min(r.ended_at ?? now, now);
+      if (b > a) down += b - a;
+    }
+    return down;
+  };
 
   return services.map(s => ({
     serviceId: s.id,
@@ -41,5 +51,7 @@ export function computeAvailability(db: DB, services: Service[], trackedSince: n
     last24h: pct(s.id, DAY),
     last7d: pct(s.id, 7 * DAY),
     incidents7d: rows.filter(r => r.service_key === s.id).length,
+    downtime24hMs: downtime(s.id, DAY),
+    downtime7dMs: downtime(s.id, 7 * DAY),
   }));
 }

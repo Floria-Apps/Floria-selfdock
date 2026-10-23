@@ -3,6 +3,7 @@
 export type Status = 'online' | 'offline' | 'restarting' | 'starting' | 'stopping' | 'unhealthy' | 'paused';
 export type Action = 'start' | 'stop' | 'restart';
 export type Source = 'docker' | 'manual';
+export type ImageUpdateStatus = 'checking' | 'current' | 'outdated' | 'unknown';
 
 export interface Service {
   /** Stable key: `docker:<container-name>` or `manual:<id>`. */
@@ -20,6 +21,7 @@ export interface Service {
   /** Only set when the app declared `floria.url` (or for manual services). */
   url: string | null;
   image: string | null;
+  imageUpdateStatus?: ImageUpdateStatus;
   status: Status;
   hidden: boolean;
 }
@@ -70,6 +72,8 @@ export interface Availability {
   last24h: number;
   last7d: number;
   incidents7d: number;
+  downtime24hMs: number;
+  downtime7dMs: number;
 }
 
 export type DockerErrorCode = 'socket_not_found' | 'permission_denied' | 'connection_refused' | 'other';

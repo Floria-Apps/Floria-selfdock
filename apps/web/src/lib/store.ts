@@ -21,9 +21,9 @@ interface LiveState {
   /** Goes up when the server says the history changed. */
   historyVersion: number;
   jobs: Record<string, StackJob>;
-  snack: { text: string; key: number } | null;
+  snack: { text: string; key: number; tone: 'info' | 'success' | 'error' } | null;
   setAuth: (a: AuthStatus, username?: string | null) => void;
-  say: (text: string) => void;
+  say: (text: string, tone?: 'info' | 'success' | 'error') => void;
 }
 
 export const useStore = create<LiveState>(set => ({
@@ -39,7 +39,7 @@ export const useStore = create<LiveState>(set => ({
   jobs: {},
   snack: null,
   setAuth: (auth, username) => set(s => ({ auth, username: username === undefined ? s.username : username })),
-  say: text => set({ snack: { text, key: Date.now() } }),
+  say: (text, tone = 'info') => set({ snack: { text, key: Date.now(), tone } }),
 }));
 
 export type ThemeMode = 'auto' | 'light' | 'dark';

@@ -3,3 +3,5 @@ packages:
   - apps/web
 allowBuilds:
   esbuild: false
+minimumReleaseAgeExclude:
+  - '@fastify/static@10.1.7'

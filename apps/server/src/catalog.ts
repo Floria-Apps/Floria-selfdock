@@ -1,7 +1,9 @@
 /** Category of popular home-lab apps. The key is the icon name (dashboard-icons). */
 export const KNOWN: Record<string, string> = {
   jellyfin: 'media', plex: 'media', emby: 'media', immich: 'media', photoprism: 'media', navidrome: 'media',
-  audiobookshelf: 'media', sonarr: 'media', radarr: 'media', prowlarr: 'media', jellyseerr: 'media', overseerr: 'media', bazarr: 'media',
+  audiobookshelf: 'media', jellyseerr: 'media', overseerr: 'media', romm: 'media',
+  sonarr: 'arr', radarr: 'arr', prowlarr: 'arr', lidarr: 'arr', readarr: 'arr', bazarr: 'arr',
+  whisparr: 'arr', recyclarr: 'arr', autobrr: 'arr', unpackerr: 'arr',
   'home-assistant': 'home', frigate: 'home', zigbee2mqtt: 'home', 'node-red': 'home', mosquitto: 'home', esphome: 'home',
   'pi-hole': 'network', 'adguard-home': 'network', wireguard: 'network', tailscale: 'network', traefik: 'network', caddy: 'network',
   nginx: 'network', 'nginx-proxy-manager': 'network', 'uptime-kuma': 'network', cloudflared: 'network',
@@ -17,6 +19,8 @@ const NAMES: Record<string, string> = {
   qbittorrent: 'qBittorrent', 'uptime-kuma': 'Uptime Kuma', 'paperless-ngx': 'Paperless-ngx', 'nginx-proxy-manager': 'Nginx Proxy Manager',
   'node-red': 'Node-RED', zigbee2mqtt: 'Zigbee2MQTT', photoprism: 'PhotoPrism', audiobookshelf: 'Audiobookshelf',
   jellyseerr: 'Jellyseerr', overseerr: 'Overseerr', filebrowser: 'File Browser', cloudflared: 'Cloudflared', crowdsec: 'CrowdSec',
+  sonarr: 'Sonarr', radarr: 'Radarr', prowlarr: 'Prowlarr', lidarr: 'Lidarr', readarr: 'Readarr',
+  bazarr: 'Bazarr', whisparr: 'Whisparr', recyclarr: 'Recyclarr', autobrr: 'Autobrr', unpackerr: 'Unpackerr',
 };
 
 const ALIASES: Record<string, string> = {
@@ -25,6 +29,8 @@ const ALIASES: Record<string, string> = {
   adguardhome: 'adguard-home',
   uptimekuma: 'uptime-kuma',
   'qbittorrent-nox': 'qbittorrent',
+  'sonarr-main': 'sonarr',
+  'radarr-main': 'radarr',
   paperless: 'paperless-ngx',
   paperlessngx: 'paperless-ngx',
   'immich-server': 'immich',

@@ -76,6 +76,9 @@ test('lists containers and builds the cards automatically', async () => {
   assert.equal(by['docker:my-app'].name, 'My homemade app');
   assert.equal(by['docker:my-app'].description, 'An app I built myself');
   assert.equal(by['docker:my-app'].category, 'other');
+  await until(() => services().then(list => list.find(s => s.id === 'docker:my-app' && s.imageUpdateStatus === 'outdated')));
+  assert.equal((await services()).find(s => s.id === 'docker:my-app')?.imageUpdateStatus, 'outdated');
+  assert.equal((await services()).find(s => s.id === 'docker:jellyfin')?.imageUpdateStatus, 'current');
   assert.deepEqual(['homeassistant', 'pihole', 'wireguard', 'qbittorrent'].map(k => by['docker:' + k].name), ['Home Assistant', 'Pi-hole', 'WireGuard', 'qBittorrent']);
 });
 

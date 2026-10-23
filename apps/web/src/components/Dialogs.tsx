@@ -11,7 +11,7 @@ import { Dialog } from '@/ui/Dialog';
 import { Icon } from '@/ui/Icon';
 import { AppIcon } from './AppIcon';
 
-const say = (t: string) => useStore.getState().say(t);
+const say = (t: string, tone?: 'info' | 'success' | 'error') => useStore.getState().say(t, tone);
 
 /* ---------- confirmation ---------- */
 const CONFIRM_ICON = { restart: 'restart_alt', stop: 'stop_circle', hide: 'visibility_off', remove: 'delete' } as const;
@@ -29,9 +29,9 @@ export function ConfirmDialog() {
     close();
     try {
       if (k === 'restart' || k === 'stop') await runAction(service, k);
-      else if (k === 'hide') { await api.patch(service.id, { hidden: true }); say(t('toast.hidden', { name: service.name })); }
-      else { await api.remove(service.id); say(t('toast.removed', { name: service.name })); }
-    } catch (e) { say(errorText(e)); }
+      else if (k === 'hide') { await api.patch(service.id, { hidden: true }); say(t('toast.hidden', { name: service.name }), 'success'); }
+      else { await api.remove(service.id); say(t('toast.removed', { name: service.name }), 'success'); }
+    } catch (e) { say(errorText(e), 'error'); }
   };
 
   return (
@@ -64,13 +64,13 @@ export function EditDialog() {
       const body: Parameters<typeof api.patch>[1] = { name: name.trim() === service.name ? undefined : name.trim(), category: cat === service.category ? undefined : cat };
       if (icon.trim()) body.icon = icon.trim();
       await api.patch(id, body);
-      say(t('edit.saved'));
+      say(t('edit.saved'), 'success');
       close();
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
   const resetIcon = async () => {
     setBusy(true);
-    try { await api.patch(id, { icon: '' }); say(t('edit.iconReset')); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+    try { await api.patch(id, { icon: '' }); say(t('edit.iconReset'), 'success'); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
 
   return (
@@ -124,7 +124,7 @@ export function AddDialog() {
     setBusy(true); setError('');
     try {
       await api.addManual({ name: name.trim(), url: url.trim(), category: cat });
-      say(t('add.done', { name: name.trim() }));
+      say(t('add.done', { name: name.trim() }), 'success');
       close();
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
@@ -174,7 +174,7 @@ export function LogsDialog() {
   return (
     <Dialog title={t('logs.title', { name: service.name })} icon="terminal" wide onClose={close}
       actions={<>
-        <Btn icon="content_copy" onClick={() => { void navigator.clipboard?.writeText(text ?? ''); say(t('logs.copied')); }}>{t('common.copy')}</Btn>
+        <Btn icon="content_copy" onClick={() => { void navigator.clipboard?.writeText(text ?? ''); say(t('logs.copied'), 'success'); }}>{t('common.copy')}</Btn>
         <Btn icon="refresh" onClick={() => void load()} disabled={loading}>{t('common.refresh')}</Btn>
         <Btn variant="tonal" onClick={close}>{t('common.close')}</Btn>
       </>}>

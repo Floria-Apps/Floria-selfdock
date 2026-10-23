@@ -18,6 +18,8 @@ interface DieInfo { exitCode: number; oom: boolean; at: number }
 const SELF_ID = os.hostname();
 const PENDING_STATUS: Record<Action, Status> = { start: 'starting', stop: 'stopping', restart: 'restarting' };
 const WEBISH_PORTS = [80, 8080, 8000, 3000, 8096, 8123, 5000, 443];
+const UPDATE_CHECK_TTL = 6 * 60 * 60 * 1000;
+const UNKNOWN_CHECK_TTL = 15 * 60 * 1000;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export function mapStatus(state: string, status: string): Status {
@@ -78,6 +80,9 @@ export class Registry {
   private lastAvail = new Map<string, boolean>();
   private iconFiles = new Map<string, string | null>();
   private iconWork = new Set<string>();
+  private imageUpdates = new Map<string, Service['imageUpdateStatus']>();
+  private imageUpdateChecked = new Map<string, number>();
+  private imageUpdateWork = new Set<string>();
   private debounce = new Map<string, NodeJS.Timeout>();
   private timers = new Set<NodeJS.Timeout>();
   private abort = new AbortController();
@@ -141,6 +146,10 @@ export class Registry {
       const seen = new Set<string>();
       for (const c of list) { const k = this.upsertRaw(c); if (k) seen.add(k); }
       for (const [k, s] of this.services) if (s.source === 'docker' && !seen.has(k)) this.removeService(k);
+      void this.checkImageUpdates(list.filter(c => {
+        const name = (c.Names?.[0] ?? c.Id).replace(/^\//, '');
+        return this.raw.has(`docker:${name}`);
+      }));
     } catch (e) {
       this.setDocker(dockerState(e));
     }
@@ -149,9 +158,44 @@ export class Registry {
   private async syncOne(id: string) {
     try {
       const c = await this.d.docker.listOne(id);
-      if (c) this.upsertRaw(c);
+      if (c) {
+        if (this.upsertRaw(c)) void this.checkImageUpdates([c]);
+      }
       else this.removeById(id);
     } catch { /* the 30 s full sync will catch up */ }
+  }
+
+  private async checkImageUpdates(containers: DockerContainer[]) {
+    const refs = new Set(containers.map(c => c.Image).filter(Boolean));
+    const check = async (reference: string) => {
+      const checkedAt = this.imageUpdateChecked.get(reference) ?? 0;
+      const ttl = this.imageUpdates.get(reference) === 'unknown' ? UNKNOWN_CHECK_TTL : UPDATE_CHECK_TTL;
+      if (this.imageUpdateWork.has(reference) || Date.now() - checkedAt < ttl) return;
+      this.imageUpdateWork.add(reference);
+      this.imageUpdates.set(reference, 'checking');
+      this.updateImageServices(reference);
+      try {
+        const status = await this.d.docker.imageUpdateStatus(reference);
+        this.imageUpdates.set(reference, status);
+      } catch (error) {
+        this.imageUpdates.set(reference, 'unknown');
+        console.warn(`Could not check for an update to Docker image "${reference}".`, error);
+      } finally {
+        this.imageUpdateChecked.set(reference, Date.now());
+        this.imageUpdateWork.delete(reference);
+        this.updateImageServices(reference);
+      }
+    };
+    const pending = [...refs].filter(reference => !this.imageUpdateWork.has(reference)
+      && Date.now() - (this.imageUpdateChecked.get(reference) ?? 0)
+        >= (this.imageUpdates.get(reference) === 'unknown' ? UNKNOWN_CHECK_TTL : UPDATE_CHECK_TTL));
+    for (let i = 0; i < pending.length; i += 4) await Promise.all(pending.slice(i, i + 4).map(check));
+  }
+
+  private updateImageServices(reference: string) {
+    for (const [key, container] of this.raw) {
+      if (container.Image === reference) this.rebuild(key);
+    }
   }
 
   private async eventLoop() {
@@ -281,6 +325,7 @@ export class Registry {
       port: pickPort(c),
       url: L['floria.url'] || null,
       image: c.Image,
+      imageUpdateStatus: this.imageUpdates.get(c.Image) ?? 'checking',
       status: pending ? PENDING_STATUS[pending.action] : mapStatus(c.State, c.Status),
       hidden: !!ov?.hidden,
     };

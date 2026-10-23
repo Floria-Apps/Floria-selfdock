@@ -29,8 +29,8 @@ export function customColors(dark: boolean): Record<string, string> {
     '--success': tone(145, 42, main), '--success-container': tone(145, 42, container), '--on-success-container': tone(145, 42, onContainer),
     '--warning': tone(75, 48, main), '--on-warning': tone(75, 48, onMain), '--warning-container': tone(75, 48, container), '--on-warning-container': tone(75, 48, onContainer),
   };
-  [300, 80, 250, 160, 355, 230].forEach((hue, i) => {
-    const chroma = i === 5 ? 6 : 26;
+  [300, 80, 250, 160, 355, 35, 230].forEach((hue, i) => {
+    const chroma = i === 6 ? 6 : 26;
     out[`--t${i + 1}-bg`] = tone(hue, chroma, dark ? 30 : 90);
     out[`--t${i + 1}-fg`] = tone(hue, chroma, dark ? 90 : 10);
   });

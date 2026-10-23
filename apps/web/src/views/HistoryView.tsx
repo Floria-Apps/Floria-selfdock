@@ -1,108 +1,163 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { M3eCard } from '@m3e/react/card';
+import { M3eHeading } from '@m3e/react/heading';
+import { M3eAccordion, M3eExpansionPanel } from '@m3e/react/expansion-panel';
 import { M3eList, M3eListItem } from '@m3e/react/list';
 import type { Incident } from '@shared/types';
-import { api, type HistoryData } from '@/lib/api';
-import { errorText } from '@/lib/actions';
 import { causeText } from '@/lib/describe';
-import { clock, dateOnly, dayLabel, duration, pct } from '@/lib/format';
+import { clock, dayLabel, duration } from '@/lib/format';
 import { trn, useT, type Key } from '@/lib/i18n';
-import { useStore } from '@/lib/store';
+import { useHistoryData } from '@/lib/useHistoryData';
 import { Icon } from '@/ui/Icon';
 import { Loading } from '@/ui/Loading';
-import { AppIcon } from '@/components/AppIcon';
+import { Btn, Tabs } from '@/ui/controls';
 
-const availTone = (v: number) => (v >= 99.9 ? 'var(--success)' : v >= 98 ? 'var(--warning)' : 'var(--error)');
+type IncidentFilter = 'all' | 'active' | 'planned' | 'resolved';
 const KINDS = ['offline', 'unhealthy', 'restarting', 'paused', 'starting'];
 
-function IncidentRow({ i }: { i: Incident }) {
+function IncidentRow({ incident, now }: { incident: Incident; now: number }) {
   const t = useT();
-  const open = i.endedAt === null;
-  const kind = KINDS.includes(i.kind) ? i.kind : 'default';
-  const title = i.planned ? t('history.youStopped', { name: i.serviceName }) : t(`history.kind.${kind}` as Key, { name: i.serviceName });
-  const when = open ? t('history.since.open', { from: clock(i.startedAt) })
-    : t('history.range', { from: clock(i.startedAt), to: clock(i.endedAt!), dur: duration(i.endedAt! - i.startedAt) });
-  const tail = open ? ` ${t(i.planned ? 'history.stillStopped' : 'history.stillDown')}` : '';
-  const cause = !i.planned ? causeText(i.cause) : null;
+  const open = incident.endedAt === null;
+  const kind = KINDS.includes(incident.kind) ? incident.kind : 'default';
+  const title = incident.planned
+    ? t('history.youStopped', { name: incident.serviceName })
+    : t(`history.kind.${kind}` as Key, { name: incident.serviceName });
+  const when = open
+    ? t('history.since.open', { from: clock(incident.startedAt) })
+    : t('history.range', { from: clock(incident.startedAt), to: clock(incident.endedAt!), dur: duration(incident.endedAt! - incident.startedAt) });
+  const tail = open ? ` · ${t(incident.planned ? 'history.stillStopped' : 'history.stillDown')}` : '';
+  const elapsed = open && !incident.planned ? ` · ${t('history.stillDownDuration', { dur: duration(now - incident.startedAt) })}` : '';
+  const cause = !incident.planned ? causeText(incident.cause) : null;
   return (
     <M3eListItem>
       <span slot="leading" className={`flex h-10 w-10 items-center justify-center rounded-full ${
-        i.planned ? 'bg-secondary-container text-on-secondary-container' : open ? 'bg-error-container text-on-error-container' : 'bg-warning-container text-on-warning-container'}`}>
-        <Icon name={i.planned ? 'stop_circle' : open ? 'error' : 'history'} fill />
+        incident.planned ? 'bg-secondary-container text-on-secondary-container' : open ? 'bg-error-container text-on-error-container' : 'bg-warning-container text-on-warning-container'}`}>
+        <Icon name={incident.planned ? 'stop_circle' : open ? 'error' : 'history'} fill />
       </span>
       {title}
-      <span slot="supporting-text">{when}{tail}{cause ? ` · ${cause}` : ''}</span>
+      <span slot="supporting-text" className="line-clamp-2">{when}{tail}{elapsed}{cause ? ` · ${cause}` : ''}</span>
     </M3eListItem>
   );
 }
 
 export function HistoryView() {
   const t = useT();
-  const version = useStore(s => s.historyVersion);
-  const services = useStore(s => s.services);
-  const [data, setData] = useState<HistoryData | null>(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let alive = true;
-    api.history().then(d => { if (alive) { setData(d); setError(''); } }).catch(e => { if (alive) setError(errorText(e)); });
-    return () => { alive = false; };
-  }, [version]);
+  const { data, error, now, retry } = useHistoryData();
+  const [filter, setFilter] = useState<IncidentFilter>('all');
 
   const groups = useMemo(() => {
-    const m = new Map<string, Incident[]>();
-    for (const i of data?.incidents ?? []) { const k = dayLabel(i.startedAt); m.set(k, [...(m.get(k) ?? []), i]); }
-    return [...m.entries()];
-  }, [data]);
-  const avail = useMemo(() => [...(data?.availability ?? [])].sort((a, b) => a.last7d - b.last7d || a.name.localeCompare(b.name)), [data]);
+    const grouped = new Map<string, Incident[]>();
+    const incidents = (data?.incidents ?? []).filter(incident => {
+      if (filter === 'active') return incident.endedAt === null && !incident.planned;
+      if (filter === 'planned') return incident.planned;
+      if (filter === 'resolved') return incident.endedAt !== null && !incident.planned;
+      return true;
+    });
+    for (const incident of incidents) {
+      const day = dayLabel(incident.startedAt);
+      const dayIncidents = grouped.get(day);
+      if (dayIncidents) dayIncidents.push(incident);
+      else grouped.set(day, [incident]);
+    }
+    return [...grouped.entries()];
+  }, [data, filter]);
 
-  if (error) return <p className="t-body-m flex items-center gap-2 text-error"><Icon name="error" size={18} />{error}</p>;
-  if (!data) return <Loading />;
+  if (!data) {
+    if (!error) return <div className="min-h-40"><Loading /></div>;
+    return (
+      <M3eCard variant="filled" className="block max-w-2xl border border-error-container" role="alert">
+        <div className="flex flex-wrap items-center gap-3">
+          <Icon name="error" fill className="text-error" />
+          <p className="t-body-m min-w-0 flex-1">{error}</p>
+          <Btn variant="tonal" icon="refresh" onClick={retry}>{t('common.retry')}</Btn>
+        </div>
+      </M3eCard>
+    );
+  }
 
-  const recent = Date.now() - data.trackedSince < 7 * 24 * 3600 * 1000;
+  const overview = [
+    {
+      label: t('history.activeIncidents'),
+      value: data.incidents.filter(incident => incident.endedAt === null && !incident.planned).length,
+      color: 'var(--error)',
+    },
+    {
+      label: t('history.filterResolved'),
+      value: data.incidents.filter(incident => incident.endedAt !== null && !incident.planned).length,
+      color: 'var(--success)',
+    },
+    {
+      label: t('history.filterPlanned'),
+      value: data.incidents.filter(incident => incident.planned).length,
+      color: 'var(--warning)',
+    },
+  ];
 
   return (
-    <div className="grid max-w-3xl gap-8">
-      <section aria-labelledby="h-av">
-        <h2 id="h-av" className="t-title-m mb-1 px-1">{t('history.availability')}</h2>
-        <p className="t-body-s mb-3 px-1 text-on-surface-variant">
-          {t('history.availabilityHelp')}{' '}
-          {recent ? `${t('history.since', { date: dateOnly(data.trackedSince), time: clock(data.trackedSince) })} ` : ''}
-          {t('history.plannedNote')}
-        </p>
-        {avail.length === 0 ? <p className="t-body-m px-1 text-on-surface-variant">{t('history.noApps')}</p> : (
-          <M3eList variant="segmented">
-            {avail.map(a => {
-              const s = services[a.serviceId];
-              return (
-                <M3eListItem key={a.serviceId}>
-                  <span slot="leading">{s ? <AppIcon service={s} size={40} radius={20} /> : <span className="block h-10 w-10 rounded-full bg-sc-highest" />}</span>
-                  {a.name}
-                  <span slot="supporting-text">{a.incidents7d === 0 ? t('history.none7d') : trn('history.incidents7d', a.incidents7d)}</span>
-                  <div slot="trailing" className="flex items-center gap-4 text-right">
-                    <div><p className="t-title-m" style={{ color: availTone(a.last24h) }}>{pct(a.last24h)}</p><p className="t-body-s text-on-surface-variant">{t('history.h24')}</p></div>
-                    <div className="w-14"><p className="t-title-m" style={{ color: availTone(a.last7d) }}>{pct(a.last7d)}</p><p className="t-body-s text-on-surface-variant">{t('history.d7')}</p></div>
-                  </div>
-                </M3eListItem>
-              );
-            })}
-          </M3eList>
+    <div className="grid max-w-6xl gap-4">
+      {error && <M3eCard variant="filled" className="block border border-error-container" role="alert">
+        <div className="flex flex-wrap items-center gap-3"><Icon name="error" fill className="text-error" /><p className="t-body-m min-w-0 flex-1">{error}</p><Btn variant="tonal" icon="refresh" onClick={retry}>{t('common.retry')}</Btn></div>
+      </M3eCard>}
+      <section aria-labelledby="h-inc" className="grid gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+          <M3eHeading id="h-inc" variant="headline" size="small" level={2} className="block">
+            {t('history.events')}
+          </M3eHeading>
+          <span className="t-label-m text-on-surface-variant">{trn('history.eventCount', data.incidents.length)}</span>
+        </div>
+        {data.incidents.length > 0 && (
+          <M3eCard variant="filled" className="block">
+            <div className="grid gap-2 p-2 sm:grid-cols-3 sm:gap-0">
+              {overview.map((stat, index) => (
+                <div key={stat.label} className={`history-summary-stat ${index > 0 ? 'sm:border-l sm:border-outline-variant' : ''}`}>
+                  <span className="history-summary-mark" style={{ backgroundColor: stat.color }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="t-body-s block truncate text-on-surface-variant">{stat.label}</span>
+                    <span className="t-title-m block tabular-nums">{stat.value}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </M3eCard>
         )}
-      </section>
-
-      <section aria-labelledby="h-inc">
-        <h2 id="h-inc" className="t-title-m mb-3 px-1">{t('history.events')}</h2>
+        {data.incidents.length > 0 && (
+          <div className="overflow-x-auto pb-1">
+            <Tabs
+              value={filter}
+              onChange={setFilter}
+              label={t('history.filterLabel')}
+              tabs={[
+                { v: 'all', label: t('history.filterAll') },
+                { v: 'active', label: t('history.filterActive') },
+                { v: 'planned', label: t('history.filterPlanned') },
+                { v: 'resolved', label: t('history.filterResolved') },
+              ]}
+            />
+          </div>
+        )}
         {groups.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-[28px] bg-sc-low p-8 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"><Icon name="verified" fill /></span>
-            <p className="t-title-m">{t('history.noEvents')}</p>
-            <p className="t-body-m max-w-sm text-on-surface-variant">{t('history.noEventsText')}</p>
-          </div>
-        ) : groups.map(([day, items]) => (
-          <div key={day} className="mb-4">
-            <h3 className="t-label-l mb-2 px-1 capitalize text-on-surface-variant">{day}</h3>
-            <M3eList variant="segmented">{items.map(i => <IncidentRow key={i.id} i={i} />)}</M3eList>
-          </div>
-        ))}
+          <M3eCard variant="filled" className="block">
+            <div className="flex flex-col items-center gap-3 p-4 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"><Icon name="verified" fill /></span>
+              <p className="t-title-m">{data.incidents.length ? t('history.filterEmpty') : t('history.noEvents')}</p>
+              <p className="t-body-m max-w-sm text-on-surface-variant">{data.incidents.length ? t('history.filterEmptyText') : t('history.noEventsText')}</p>
+            </div>
+          </M3eCard>
+        ) : (
+          <M3eAccordion>
+            {groups.map(([day, items], index) => (
+              <M3eExpansionPanel key={day} open={index === 0}>
+                <span slot="header" className="flex w-full items-center justify-between gap-3">
+                  <span className="capitalize">{day}</span>
+                  <span className="t-label-m text-on-surface-variant">{trn('history.eventCount', items.length)}</span>
+                </span>
+                <M3eList variant="segmented" className="pb-2">
+                  {items.map(incident => <IncidentRow key={incident.id} incident={incident} now={now} />)}
+                </M3eList>
+              </M3eExpansionPanel>
+            ))}
+          </M3eAccordion>
+        )}
       </section>
     </div>
   );

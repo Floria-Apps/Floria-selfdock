@@ -4,6 +4,7 @@ import { M3eLinearProgressIndicator } from '@m3e/react/progress-indicator';
 import type { Service } from '@shared/types';
 import { IconButton } from '@/ui/controls';
 import { AppIcon } from './AppIcon';
+import { Icon } from '@/ui/Icon';
 import { StatusChip } from './StatusChip';
 import { STATUS_COLORS, statusLabel, isBusy } from '@/lib/status';
 import { openApp } from '@/lib/actions';
@@ -12,6 +13,17 @@ import { useT } from '@/lib/i18n';
 import { useUi } from '@/lib/ui';
 
 interface Props { service: Service; showPort: boolean; logos: boolean }
+
+function UpdateBadge({ service }: { service: Service }) {
+  const t = useT();
+  if (service.imageUpdateStatus !== 'outdated') return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-tertiary-container px-2 py-1 text-on-tertiary-container" title={t('updates.available')}>
+      <Icon name="system_update_alt" size={16} />
+      <span className="t-label-m">{t('updates.available')}</span>
+    </span>
+  );
+}
 
 function MoreButton({ service, className = '' }: { service: Service; className?: string }) {
   const t = useT();
@@ -32,8 +44,8 @@ export function AppCard({ service, showPort, logos }: Props) {
             <span className={`t-title-m block truncate ${off ? 'text-on-surface-variant' : ''}`}>{service.name}</span>
             <span className="t-body-m line-clamp-2 block text-on-surface-variant">{describeService(service)}</span>
           </span>
-          <span className="mt-auto flex items-center justify-between gap-2 pt-1">
-            <StatusChip status={service.status} />
+          <span className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+            <span className="flex flex-wrap items-center gap-2"><StatusChip status={service.status} /><UpdateBadge service={service} /></span>
             {showPort && service.port && <span className="t-label-m text-on-surface-variant">:{service.port}</span>}
           </span>
         </div>
@@ -59,6 +71,7 @@ export function AppRow({ service, showPort, logos }: Props) {
       <span className={off ? 'text-on-surface-variant' : ''}>{service.name}</span>
       <span slot="supporting-text">{describeService(service)}</span>
       <div slot="trailing" className="flex items-center gap-2">
+        <UpdateBadge service={service} />
         <span className="hidden sm:inline-flex"><StatusChip status={service.status} /></span>
         {showPort && service.port && <span className="t-label-m hidden w-12 text-right text-on-surface-variant sm:block">:{service.port}</span>}
         <span className="h-2.5 w-2.5 shrink-0 rounded-full sm:hidden" style={{ background: STATUS_COLORS[service.status].dot }} aria-label={statusLabel(service.status)} />

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Alert, Service } from '@shared/types';
+import { M3eExpansionPanel } from '@m3e/react/expansion-panel';
 import { api } from '@/lib/api';
 import { errorText } from '@/lib/actions';
 import { CATEGORIES, catName } from '@/lib/categories';
@@ -10,7 +11,6 @@ import { useStore, usePrefs } from '@/lib/store';
 import { useUi } from '@/lib/ui';
 import { Btn, ChipSelect, Segmented } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
-import { AlertCard } from '@/components/AlertCard';
 import { AppCard, AppRowList } from '@/components/AppItems';
 import { Gauge } from '@/components/Gauge';
 import { Hero } from '@/components/Hero';
@@ -20,7 +20,7 @@ export function useAlertActions(go: (v: 'history') => void) {
   const set = useUi(s => s.set);
   const say = useStore(s => s.say);
   return {
-    dismiss: async (id: string) => { try { await api.dismiss(id); say(t('alerts.dismissed')); } catch (e) { say(errorText(e)); } },
+    dismiss: async (id: string) => { try { await api.dismiss(id); say(t('alerts.dismissed'), 'success'); } catch (e) { say(errorText(e), 'error'); } },
     act: (a: Alert) => {
       if (a.action?.kind === 'logs' && a.action.serviceId) set({ logs: a.action.serviceId });
       else if (a.action?.kind === 'history') go('history');
@@ -63,7 +63,6 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
   const prefs = usePrefs();
   const set = useUi(s => s.set);
   const [cat, setCat] = useState('all');
-  const alertActions = useAlertActions(go);
 
   const all = useMemo(() => Object.values(servicesMap).filter(s => prefs.showHidden || !s.hidden), [servicesMap, prefs.showHidden]);
   const q = query.trim().toLowerCase();
@@ -82,29 +81,30 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
         <Hero services={all} alertCount={alerts.length} onGoAlerts={() => go('alerts')} />
       )}
 
-      {alerts.length > 0 && (
-        <section className="mt-8" aria-labelledby="h-alerts">
-          <h2 id="h-alerts" className="t-title-m mb-3 px-1">{t('alerts.title')}</h2>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {alerts.slice(0, 4).map(a => <AlertCard key={a.id} alert={a} onDismiss={id => void alertActions.dismiss(id)} onAction={alertActions.act} />)}
-          </div>
-          {alerts.length > 4 && <div className="mt-2"><Btn onClick={() => go('alerts')}>{t('alerts.viewAll', { n: alerts.length })}</Btn></div>}
-        </section>
-      )}
-
       {prefs.showServer && metrics && (
-        <section className="mt-8" aria-labelledby="h-server">
-          <h2 id="h-server" className="t-title-m mb-3 px-1">{t('server.title')}</h2>
-          <div className="grid grid-cols-3 gap-3 md:max-w-xl">
+        <M3eExpansionPanel className="home-server-panel">
+          <span slot="header" className="flex w-full min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-tertiary-container text-on-tertiary-container">
+              <Icon name="dns" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="t-title-m block">{t('server.title')}</span>
+              <span className="t-body-s block text-on-surface-variant">{t('server.expandHint')}</span>
+            </span>
+            {(metrics.disk.percent >= 85 || metrics.ram.percent >= 92 || metrics.cpu >= 90) && (
+              <span className="t-label-m rounded-full bg-warning-container px-3 py-1 text-on-warning-container">{t('server.attention')}</span>
+            )}
+          </span>
+          <div className="grid grid-cols-1 gap-3 px-1 pb-2 sm:grid-cols-3">
             <Gauge label={t('server.disk')} sub={t('server.free', { size: bytes(metrics.disk.total - metrics.disk.used) })} value={metrics.disk.percent} warn={metrics.disk.percent >= 85} />
             <Gauge label={t('server.memory')} sub={t('server.memoryOf', { size: bytes(metrics.ram.total) })} value={metrics.ram.percent} warn={metrics.ram.percent >= 92} />
             <Gauge label={t('server.cpu')} sub={t('server.now')} value={metrics.cpu} warn={metrics.cpu >= 90} />
           </div>
-        </section>
+        </M3eExpansionPanel>
       )}
 
       {all.length > 0 && (
-        <div className="mt-8 flex items-center gap-3">
+        <div className="mt-5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <ChipSelect label={t('filter.aria')} value={cat} onChange={setCat}
               options={[{ v: 'all', label: t('category.all') }, ...CATEGORIES.filter(c => usedCats.has(c.id)).map(c => ({ v: c.id, label: catName(c.id) }))]} />
@@ -117,7 +117,7 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
       )}
 
       {groups.map(g => (
-        <section key={g.c.id} className="mt-6" aria-labelledby={`h-${g.c.id}`}>
+        <section key={g.c.id} className="mt-5" aria-labelledby={`h-${g.c.id}`}>
           <h2 id={`h-${g.c.id}`} className="t-title-m mb-3 px-1">{catName(g.c.id)}</h2>
           {prefs.layout === 'grid' ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

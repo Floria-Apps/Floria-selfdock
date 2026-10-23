@@ -21,7 +21,7 @@ function NewStackDialog({ onClose, onCreated }: { onClose: () => void; onCreated
   const bad = name.length > 0 && !NAME_RE.test(name);
   const create = async () => {
     setBusy(true); setError('');
-    try { await api.createStack(name); useStore.getState().say(t('stacks.created', { name })); onCreated(name); }
+    try { await api.createStack(name); useStore.getState().say(t('stacks.created', { name }), 'success'); onCreated(name); }
     catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
   return (

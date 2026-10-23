@@ -11,6 +11,7 @@ export function relTime(ts: number, now = Date.now()): string {
 }
 
 export function duration(ms: number): string {
+  if (ms <= 0) return '0 s';
   if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))} s`;
   if (ms < HOUR) return `${Math.round(ms / MIN)} min`;
   if (ms < DAY) { const h = Math.floor(ms / HOUR), m = Math.round((ms % HOUR) / MIN); return m ? `${h} h ${m} min` : `${h} h`; }

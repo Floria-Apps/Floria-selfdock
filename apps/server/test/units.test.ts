@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { hashPassword, verifyPassword } from '../src/auth';
 import { displayNameFor, iconCandidates, knownFor, prettifyName } from '../src/catalog';
-import { demuxDockerLogs, parseDockerHost } from '../src/docker';
+import { DockerClient, demuxDockerLogs, parseDockerHost } from '../src/docker';
 import { deathCause, dockerState, mapStatus, pickPort } from '../src/registry';
 import { computeAvailability } from '../src/history';
 import { openDb } from '../src/db';
@@ -25,11 +25,12 @@ test('icons: candidates come from the container image', () => {
   assert.equal(iconCandidates({ image: 'lscr.io/linuxserver/qbittorrent:latest' })[0], 'qbittorrent');
   assert.equal(iconCandidates({ label: 'My Icon', image: 'x/y' })[0], 'my-icon');
   assert.deepEqual(knownFor(iconCandidates({ image: 'nextcloud:29' })), { key: 'nextcloud', category: 'files' });
+  assert.deepEqual(knownFor(iconCandidates({ image: 'linuxserver/sonarr:latest' })), { key: 'sonarr', category: 'arr' });
   assert.equal(prettifyName('uptime-kuma'), 'Uptime Kuma');
   assert.equal(displayNameFor(['pi-hole']), 'Pi-hole');
 });
 
-test('docker: DOCKER_HOST parsing and multiplexed logs', () => {
+test('docker: DOCKER_HOST parsing and multiplexed logs', async () => {
   assert.deepEqual(parseDockerHost('unix:///var/run/docker.sock'), { socketPath: '/var/run/docker.sock' });
   assert.deepEqual(parseDockerHost('tcp://docker-proxy:2375'), { host: 'docker-proxy', port: 2375 });
   assert.throws(() => parseDockerHost('banana'));
@@ -37,6 +38,10 @@ test('docker: DOCKER_HOST parsing and multiplexed logs', () => {
   const head = Buffer.alloc(8); head[0] = 1; head.writeUInt32BE(body.length, 4);
   assert.equal(demuxDockerLogs(Buffer.concat([head, body, head, body])), 'hello\nhello\n');
   assert.equal(demuxDockerLogs(Buffer.from('plain TTY text')), 'plain TTY text');
+  assert.equal(demuxDockerLogs(Buffer.concat([head, body, head, body.subarray(0, 2)])), Buffer.concat([head, body, head, body.subarray(0, 2)]).toString('utf8'));
+  const aborted = new AbortController();
+  aborted.abort();
+  await assert.doesNotReject(() => new DockerClient('tcp://127.0.0.1:1').events(() => {}, aborted.signal, () => {}));
 });
 
 test('status and port from a container', () => {
@@ -79,5 +84,10 @@ test('availability ignores stops the user asked for', () => {
   const [av] = computeAvailability(db, [svc], now - 24 * H, now);
   assert.equal(av.last24h, Math.round((100 - (1 / 24) * 100) * 100) / 100);
   assert.equal(av.incidents7d, 1);
+  assert.equal(av.downtime24hMs, H);
+  assert.equal(av.downtime7dMs, H);
+  ins.run('docker:b', 'B', 'offline', 0, now - 30 * 60_000, null);
+  const [open] = computeAvailability(db, [{ id: 'docker:b', name: 'B' } as never], now - 24 * H, now);
+  assert.equal(open.downtime24hMs, 30 * 60_000);
   db.close();
 });

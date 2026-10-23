@@ -15,7 +15,11 @@
     "start": "node apps/server/dist/index.js"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "concurrently": "^9.2.5",
     "cross-env": "^7.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
   }
 }

@@ -28,12 +28,12 @@ export function SettingsView({ onLogout }: { onLogout: () => void }) {
   const [server, setServer] = useState<SettingsData | null>(null);
   const loaded = useRef(false);
 
-  useEffect(() => { api.settings().then(s => { setServer(s); loaded.current = true; }).catch(e => say(errorText(e))); }, [say]);
+  useEffect(() => { api.settings().then(s => { setServer(s); loaded.current = true; }).catch(e => say(errorText(e), 'error')); }, [say]);
 
   // Saves the intervals half a second after you stop moving the slider.
   useEffect(() => {
     if (!server || !loaded.current) return;
-    const timer = setTimeout(() => { api.saveSettings({ metricsIntervalSec: server.metricsIntervalSec, checkIntervalSec: server.checkIntervalSec }).catch(e => say(errorText(e))); }, 500);
+    const timer = setTimeout(() => { api.saveSettings({ metricsIntervalSec: server.metricsIntervalSec, checkIntervalSec: server.checkIntervalSec }).catch(e => say(errorText(e), 'error')); }, 500);
     return () => clearTimeout(timer);
   }, [server?.metricsIntervalSec, server?.checkIntervalSec]); // eslint-disable-line react-hooks/exhaustive-deps
 

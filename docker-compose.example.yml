@@ -52,11 +52,11 @@ services:
     environment:
       # Allow the proxy to list and inspect containers.
       CONTAINERS: 1
+      IMAGES: 1
       # Allow the proxy to receive Docker events.
       EVENTS: 1
-      # Allow API requests that change Docker state, such as creating or updating resources.
-      # Keep this enabled only if SelfDock needs to perform such actions.
-      POST: 1
+      # Block mutations except the explicitly allowed container actions below.
+      POST: 0
       # Allow starting containers.
       ALLOW_START: 1
       # Allow stopping containers.
@@ -80,4 +80,3 @@ networks:
 volumes:
   # Named volume used to keep SelfDock data when the container is recreated.
   selfdock-data:
-

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { M3eAvatar } from '@m3e/react/avatar';
-import { M3eBadge } from '@m3e/react/badge';
+import { M3eAppBar } from '@m3e/react/app-bar';
+import { M3eCard } from '@m3e/react/card';
 import { M3eFab } from '@m3e/react/fab';
-import { M3eNavBar, M3eNavItem } from '@m3e/react/nav-bar';
-import { M3eNavRail } from '@m3e/react/nav-rail';
+import { M3eNavBar } from '@m3e/react/nav-bar';
 import { M3eSearchBar } from '@m3e/react/search';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -11,51 +11,19 @@ import { startLive, stopLive } from '@/lib/live';
 import { usePrefs, useStore } from '@/lib/store';
 import { useApplyTheme } from '@/lib/theme';
 import { useUi } from '@/lib/ui';
+import { AppNavItems, AppSidebar, type AppView } from '@/components/AppNavigation';
 import { Btn, IconButton } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { Loading } from '@/ui/Loading';
 import { Overlays } from '@/components/Overlays';
-import { AlertsView } from '@/views/AlertsView';
-import { AuthView } from '@/views/AuthView';
-import { HistoryView } from '@/views/HistoryView';
-import { HomeView } from '@/views/HomeView';
-import { SettingsView } from '@/views/SettingsView';
-import { StacksView } from '@/views/StacksView';
 
-type View = 'home' | 'alerts' | 'history' | 'stacks' | 'settings';
-const NAV: { id: View; icon: string }[] = [
-  { id: 'home', icon: 'home' },
-  { id: 'alerts', icon: 'notifications' },
-  { id: 'history', icon: 'history' },
-  { id: 'stacks', icon: 'deployed_code' },
-  { id: 'settings', icon: 'settings' },
-];
-
-/** The navigation items, shared by the side rail (desktop) and the bottom bar (phones). */
-function NavItems({ view, onPick, alertCount }: { view: View; onPick: (v: View) => void; alertCount: number }) {
-  const t = useT();
-  return (
-    <>
-      {NAV.map(n => {
-        const badge = n.id === 'alerts' && alertCount > 0;
-        /* The badge sits in the icon's own box, so it always lands on the icon's corner. */
-        const icon = (fill: boolean, slot: string) => (
-          <span slot={slot} className="relative inline-flex">
-            <Icon name={n.icon} fill={fill} />
-            {badge && <M3eBadge className="absolute -right-2 -top-1">{alertCount}</M3eBadge>}
-          </span>
-        );
-        return (
-          <M3eNavItem key={n.id} selected={view === n.id} onClick={() => onPick(n.id)}>
-            {icon(false, 'icon')}
-            {icon(true, 'selected-icon')}
-            {t(`nav.${n.id}` as const)}
-          </M3eNavItem>
-        );
-      })}
-    </>
-  );
-}
+const AlertsView = lazy(() => import('@/views/AlertsView').then(m => ({ default: m.AlertsView })));
+const AuthView = lazy(() => import('@/views/AuthView').then(m => ({ default: m.AuthView })));
+const HistoryView = lazy(() => import('@/views/HistoryView').then(m => ({ default: m.HistoryView })));
+const UptimeView = lazy(() => import('@/views/UptimeView').then(m => ({ default: m.UptimeView })));
+const HomeView = lazy(() => import('@/views/HomeView').then(m => ({ default: m.HomeView })));
+const SettingsView = lazy(() => import('@/views/SettingsView').then(m => ({ default: m.SettingsView })));
+const StacksView = lazy(() => import('@/views/StacksView').then(m => ({ default: m.StacksView })));
 
 export default function App() {
   const t = useT();
@@ -67,7 +35,7 @@ export default function App() {
   const prefs = usePrefs();
   const setUi = useUi(s => s.set);
   const dark = useApplyTheme();
-  const [view, setView] = useState<View>('home');
+  const [view, setView] = useState<AppView>('home');
   const [query, setQuery] = useState('');
   const [bootError, setBootError] = useState('');
 
@@ -89,56 +57,66 @@ export default function App() {
   if (bootError) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-error-container text-on-error-container"><Icon name="cloud_off" size={32} /></span>
-        <h1 className="t-headline-s">{t('boot.errorTitle')}</h1>
-        <p className="t-body-m max-w-sm text-on-surface-variant">{bootError}</p>
-        <Btn variant="filled" icon="refresh" onClick={boot}>{t('common.retry')}</Btn>
+        <M3eCard variant="filled" className="block w-full max-w-sm">
+          <div className="flex flex-col items-center gap-3 p-2 text-center">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-error-container text-on-error-container"><Icon name="cloud_off" size={32} /></span>
+            <h1 className="t-headline-s">{t('boot.errorTitle')}</h1>
+            <p className="t-body-m text-on-surface-variant">{bootError}</p>
+            <Btn variant="filled" icon="refresh" onClick={boot}>{t('common.retry')}</Btn>
+          </div>
+        </M3eCard>
       </main>
     );
   }
   if (auth === 'loading') return <main className="flex min-h-screen items-center justify-center"><Loading /></main>;
-  if (auth === 'setup' || auth === 'login') return <><AuthView setup={auth === 'setup'} /><Overlays /></>;
+  if (auth === 'setup' || auth === 'login') {
+    return <Suspense fallback={<main className="flex min-h-screen items-center justify-center"><Loading /></main>}>
+      <AuthView setup={auth === 'setup'} />
+      <Overlays />
+    </Suspense>;
+  }
 
   return (
-    <div className="min-h-screen md:pl-20">
+    <div className="min-h-screen md:pl-72">
       {/* side rail on desktop */}
-      <M3eNavRail aria-label={t('nav.home')} className="fixed inset-y-0 left-0 z-20 hidden md:flex">
-        <M3eFab variant="primary-container" size="small" aria-label={t('add.title')} title={t('add.title')} onClick={() => setUi({ adding: true })}>
-          <Icon name="add" />
-        </M3eFab>
-        <NavItems view={view} onPick={setView} alertCount={alertCount} />
-      </M3eNavRail>
+      <AppSidebar view={view} onPick={setView} alertCount={alertCount} onAddService={() => setUi({ adding: true })} />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-36 pt-4 md:px-8 md:pb-16">
-        <header className="mb-6 flex items-center gap-3">
+        <M3eAppBar size="small" aria-label={t('nav.aria')} className="mb-6 block">
           {view === 'home' ? (
-            <M3eSearchBar clearable clearLabel={t('search.clear')} className="min-w-0 flex-1 md:max-w-xl md:flex-none md:basis-[36rem]" onClear={() => setQuery('')}>
+            <M3eSearchBar slot="title" clearable clearLabel={t('search.clear')} className="block w-full min-w-0 md:max-w-xl" onClear={() => setQuery('')}>
               <Icon slot="leading" name="search" />
               <input slot="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search.placeholder')} aria-label={t('search.placeholder')} />
             </M3eSearchBar>
-          ) : <h1 className="t-title-l flex h-14 items-center px-1">{t(`nav.${view}` as const)}</h1>}
-          <div className="ml-auto flex items-center gap-2">
-            <IconButton icon={dark ? 'light_mode' : 'dark_mode'} label={dark ? t('theme.toLight') : t('theme.toDark')} onClick={() => prefs.set({ theme: dark ? 'light' : 'dark' })} />
+          ) : <h1 slot="title" className="t-title-l block truncate">{t(`nav.${view}` as const)}</h1>}
+          <div slot="trailing" className="flex items-center gap-1">
+            <IconButton variant="tonal" icon={dark ? 'light_mode' : 'dark_mode'} label={dark ? t('theme.toLight') : t('theme.toDark')} onClick={() => prefs.set({ theme: dark ? 'light' : 'dark' })} />
             <M3eAvatar title={username ?? ''} aria-label={t('account.label', { name: username ?? '' })}><Icon name="person" fill /></M3eAvatar>
           </div>
-        </header>
+        </M3eAppBar>
 
         {conn !== 'open' && (
-          <div role="status" className="t-body-m mb-4 flex items-center gap-3 rounded-2xl bg-tertiary-container px-4 py-3 text-on-tertiary-container">
-            <Icon name="sync" /> {t('conn.reconnecting')}
-          </div>
+          <M3eCard variant="filled" className="mb-4 block" role="status">
+            <div className="t-body-m flex items-center gap-3 text-on-surface-variant">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tertiary-container"><Icon name="sync" /></span>
+              {t('conn.reconnecting')}
+            </div>
+          </M3eCard>
         )}
 
-        {view === 'home' && <HomeView query={query} go={setView} />}
-        {view === 'alerts' && <AlertsView go={setView} />}
-        {view === 'history' && <HistoryView />}
-        {view === 'stacks' && <StacksView />}
-        {view === 'settings' && <SettingsView onLogout={logout} />}
+        <Suspense fallback={<Loading className="min-h-40 items-center" />}>
+          {view === 'home' && <HomeView query={query} go={setView} />}
+          {view === 'alerts' && <AlertsView go={setView} />}
+          {view === 'uptime' && <UptimeView />}
+          {view === 'history' && <HistoryView />}
+          {view === 'stacks' && <StacksView />}
+          {view === 'settings' && <SettingsView onLogout={logout} />}
+        </Suspense>
       </main>
 
       {/* bottom bar on phones */}
-      <M3eNavBar aria-label={t('nav.home')} className="fixed inset-x-0 bottom-0 z-20 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <NavItems view={view} onPick={setView} alertCount={alertCount} />
+      <M3eNavBar aria-label={t('nav.aria')} className="fixed inset-x-0 bottom-0 z-20 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <AppNavItems view={view} onPick={setView} alertCount={alertCount} />
       </M3eNavBar>
 
       {view === 'home' && (
