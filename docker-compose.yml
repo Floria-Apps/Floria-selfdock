@@ -28,7 +28,7 @@ services:
     networks: [default, docker-api]
 
   docker-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
+    image: tecnativa/docker-socket-proxy:v0.5.0
     container_name: floria-selfdock-docker-proxy
     restart: unless-stopped
     environment:
