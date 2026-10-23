@@ -44,7 +44,7 @@ services:
 
   docker-proxy:
     # Image for a proxy that exposes selected Docker API endpoints.
-    image: tecnativa/docker-socket-proxy:0.3.0
+    image: tecnativa/docker-socket-proxy:v0.5.0
     # Fixed container name for the Docker API proxy.
     container_name: floria-selfdock-docker-proxy
     # Restart automatically unless explicitly stopped.
