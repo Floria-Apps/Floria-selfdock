@@ -16,7 +16,7 @@
     "@codemirror/lint": "^6.9.7",
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
-    "@codemirror/view": "^6.43.14",
+    "@codemirror/view": "^6.43.15",
     "@fontsource-variable/roboto-flex": "^5.3.0",
     "@lezer/highlight": "^1.2.5",
     "@lit/react": "^1.0.8",
