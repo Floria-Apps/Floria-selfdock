@@ -24,12 +24,12 @@
     "@m3e/web": "^2.10.1",
     "@material-symbols/svg-400": "^0.48.2",
     "@material/material-color-utilities": "^0.4.0",
-    "react": "^18.3.1",
+    "react": "^19.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@types/react": "^18.3.31",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.1",
