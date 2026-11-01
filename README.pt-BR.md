@@ -151,8 +151,7 @@ Os pull requests rodam a checagem de tipos, os testes e uma verificação que co
 - Os testes automáticos rodam contra o "Docker de mentira" (que fala o mesmo protocolo), não contra um Docker real. A imagem do Dockerfile ainda não foi construída em um ambiente com Docker.
 - As ações de Aplicar do editor e a checagem `docker compose config` foram testadas contra um programa `docker` de mentira, não contra um Docker real com o plugin compose.
 - O editor mostra problemas e guarda backups, mas ainda não tem comparação lado a lado (diff).
-- O JavaScript principal do painel tem cerca de 1,2 MB (270 KB comprimido), principalmente os componentes do M3E. O editor carrega separado, só quando você abre uma stack.
-- O arquivo da fonte de ícones do Material Symbols tem 4,5 MB (vai junto no app para funcionar offline). Dá para reduzi-lo gerando só os ícones usados.
+- Os ícones Material Symbols são registrados como SVGs individuais no M3E, sem carregar a fonte completa. Core, tema e componentes M3E ficam em bundles separados e reutilizáveis; o editor continua sendo carregado só quando você abre uma stack.
 - Serviços manuais com HTTPS de certificado próprio (autoassinado) aparecem como fora do ar.
 - Um só usuário por enquanto; não há recuperação de senha pela interface.
 - Os ícones vêm do projeto dashboard-icons; os logotipos pertencem aos respectivos projetos.

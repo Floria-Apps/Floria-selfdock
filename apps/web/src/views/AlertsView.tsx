@@ -21,19 +21,13 @@ export function AlertsView({ go }: { go: (v: 'history') => void }) {
     );
   }
   return (
-    <div className="grid max-w-3xl gap-4">
-      <M3eCard variant="filled" className="block">
-        <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-error-container text-on-error-container"><Icon name="notifications_active" fill /></span>
-          <div className="min-w-0 flex-1">
-            <h2 className="t-title-l">{t('alerts.title')}</h2>
-            <p className="t-body-m text-on-surface-variant">{t('alerts.summary')}</p>
-          </div>
-          <span className="t-label-l shrink-0 rounded-full bg-error-container px-3 py-1.5 text-on-error-container">
-            {trn('alerts.count', alerts.length)}
-          </span>
-        </div>
-      </M3eCard>
+    <div className="page-content">
+      <div className="page-intro flex-wrap justify-between gap-2">
+        <p className="t-body-m text-on-surface-variant">{t('alerts.summary')}</p>
+        <span className="t-label-l rounded-full bg-error-container px-3 py-1.5 text-on-error-container">
+          {trn('alerts.count', alerts.length)}
+        </span>
+      </div>
       {alerts.map(x => <AlertCard key={x.id} alert={x} onDismiss={id => void a.dismiss(id)} onAction={a.act} />)}
     </div>
   );

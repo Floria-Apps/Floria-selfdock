@@ -9,12 +9,75 @@ import { DockerClient, demuxDockerLogs, parseDockerHost } from '../src/docker';
 import { deathCause, dockerState, mapStatus, pickPort } from '../src/registry';
 import { computeAvailability } from '../src/history';
 import { openDb } from '../src/db';
+import { addressOverridesSchema, buildServiceAddresses, infrastructureSchema, publishedPorts, slugifyServiceName, uniqueSubdomain } from '../src/service-addresses';
+import { classifyUpdate, parseSemVer } from '../src/semver';
+import { RegistryChecker } from '../src/registry-checker';
 
 test('password: hash verifies and rejects a wrong password', () => {
   const h = hashPassword('a-long-password');
   assert.ok(verifyPassword('a-long-password', h));
   assert.ok(!verifyPassword('another-one', h));
   assert.ok(!verifyPassword('x', 'garbage'));
+});
+
+test('semantic versions parse and classify image updates', () => {
+  assert.deepEqual(parseSemVer('v1.2.3'), { major: 1, minor: 2, patch: 3, prerelease: undefined });
+  assert.deepEqual(parseSemVer('2.4.0-rc.1+build.7'), { major: 2, minor: 4, patch: 0, prerelease: 'rc.1' });
+  assert.equal(parseSemVer('latest'), null);
+  assert.equal(parseSemVer('1.2'), null);
+
+  assert.equal(classifyUpdate('1.2.3', '1.2.4'), 'patch');
+  assert.equal(classifyUpdate('1.2.3', '1.3.0'), 'minor');
+  assert.equal(classifyUpdate('1.2.3', '2.0.0'), 'major');
+  assert.equal(classifyUpdate('1.2.3', '1.2.3'), 'current');
+  assert.equal(classifyUpdate('latest', 'latest', 'sha-old', 'sha-new'), 'floating');
+  assert.equal(classifyUpdate('ghcr.io/app@sha256:abc', 'latest', 'sha-old', 'sha-new'), 'current');
+  assert.equal(classifyUpdate('custom-tag', 'another-tag'), 'uncomparable');
+  assert.equal(classifyUpdate('custom-tag', 'another-tag', 'sha-old', 'sha-new'), 'unknown');
+});
+
+test('registry checker coalesces concurrent checks and caches results', async () => {
+  let calls = 0;
+  let resolveCheck!: (status: 'current' | 'outdated') => void;
+  const docker = {
+    imageUpdateStatus: () => {
+      calls += 1;
+      return new Promise<'current' | 'outdated'>(resolve => { resolveCheck = resolve; });
+    },
+  };
+  const checker = new RegistryChecker(docker);
+  const first = checker.checkImage('ghcr.io/example/app:1.0', 'sha-local');
+  const second = checker.checkImage('ghcr.io/example/app:1.0', 'sha-local');
+  assert.equal(calls, 1, 'concurrent requests share one registry check');
+  resolveCheck('outdated');
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(a.status, 'patch');
+  assert.equal(b, a);
+  assert.equal((await checker.checkImage('ghcr.io/example/app:1.0')).status, 'patch');
+  assert.equal(calls, 1, 'a successful result is cached');
+});
+
+test('registry checker reports and caches registry errors', async () => {
+  let calls = 0;
+  const checker = new RegistryChecker({
+    imageUpdateStatus: async () => { calls += 1; throw new Error('registry unavailable'); },
+  });
+  const result = await checker.checkImage('ghcr.io/example/private:1.0');
+  assert.equal(result.status, 'error');
+  assert.equal(calls, 1);
+  assert.equal(await checker.checkImage('ghcr.io/example/private:1.0'), result);
+  assert.equal(calls, 1, 'an error result is cached to avoid repeated registry requests');
+});
+
+test('registry checker skips registry calls for digest-pinned images', async () => {
+  let calls = 0;
+  const checker = new RegistryChecker({
+    imageUpdateStatus: async () => { calls += 1; return 'outdated'; },
+  });
+  const result = await checker.checkImage('ghcr.io/example/app@sha256:abc', 'sha-local');
+  assert.equal(result.status, 'digest');
+  assert.equal(result.currentDigest, 'sha-local');
+  assert.equal(calls, 0);
 });
 
 test('icons: candidates come from the container image', () => {
@@ -55,6 +118,108 @@ test('status and port from a container', () => {
   assert.equal(pickPort(c), 8081);
   assert.equal(pickPort({ ...c, Ports: [], Labels: { 'floria.port': '8123' } }), 8123);
   assert.equal(pickPort({ ...c, Ports: [] }), null);
+});
+
+test('service addresses validate infrastructure and preserve Docker port mappings', () => {
+  const infrastructure = {
+    localHost: '192.168.18.12',
+    baseDomain: 'talona.com.br',
+    tailscaleIp: '100.84.187.66',
+    proxyDomain: '*.talona.com.br',
+  };
+  assert.equal(infrastructureSchema.safeParse(infrastructure).success, true);
+  assert.equal(infrastructureSchema.safeParse({ ...infrastructure, tailscaleIp: '1000.1.1.1' }).success, false);
+  assert.equal(infrastructureSchema.safeParse({ ...infrastructure, localHost: 'https://server.example' }).success, false);
+  assert.equal(addressOverridesSchema.safeParse({ localUrl: 'javascript:alert(1)' }).success, false);
+  assert.equal(addressOverridesSchema.safeParse({ subdomain: 'not a domain' }).success, false);
+
+  const mappings = publishedPorts([
+    { PrivatePort: 80, PublicPort: 8080, IP: '0.0.0.0', Type: 'tcp' },
+    { PrivatePort: 443, PublicPort: 8443, IP: '0.0.0.0', Type: 'tcp' },
+    { PrivatePort: 53, PublicPort: 5353, Type: 'udp' },
+    { PrivatePort: 8080, Type: 'tcp' },
+  ]);
+  const generated = buildServiceAddresses({ name: 'AdGuard Home', infrastructure, publishedPorts: mappings });
+  assert.equal(slugifyServiceName('AdGuard Home'), 'adguard');
+  assert.equal(generated.webPort, 80);
+  assert.equal(generated.webPortSource, 'inferred');
+  assert.deepEqual(generated.publishedPort, mappings[0]);
+  assert.equal(generated.localUrl, 'http://192.168.18.12:8080');
+  assert.equal(generated.tailscaleUrl, 'http://100.84.187.66:8080');
+  assert.equal(generated.proxyUrl, 'https://adguard.talona.com.br');
+  assert.deepEqual(generated.publishedPorts, mappings);
+  assert.equal(uniqueSubdomain('AdGuard Home', ['adguard']), 'adguard-2');
+
+  const noGlobals = { localHost: '', baseDomain: '', tailscaleIp: '', proxyDomain: '' };
+  const unresolved = buildServiceAddresses({
+    name: 'Unknown app',
+    infrastructure: noGlobals,
+    publishedPorts: [{ containerPort: 9000, hostPort: 19000, hostIp: '0.0.0.0', protocol: 'tcp' }],
+  });
+  assert.equal(unresolved.webPort, null, 'a published port alone does not identify a web interface');
+  assert.equal(unresolved.webPortSource, null);
+  assert.equal(unresolved.localUrl, null);
+  assert.equal(unresolved.proxyUrl, null);
+
+  const customized = buildServiceAddresses({
+    name: 'AdGuard Home',
+    infrastructure,
+    publishedPorts: mappings,
+    overrides: { webPort: 443, localUrl: 'http://adguard.lan:4444', proxyDomain: 'dns.example.net', subdomain: 'dns' },
+  });
+  assert.equal(customized.webPort, 443);
+  assert.equal(customized.webPortSource, 'override');
+  assert.equal(customized.publishedPort, mappings[1]);
+  assert.equal(customized.localUrl, 'http://adguard.lan:4444');
+  assert.equal(customized.proxyUrl, 'https://dns.example.net');
+  assert.equal(customized.presets.localUrl, 'http://192.168.18.12:8443');
+  assert.equal(customized.subdomain, 'dns');
+
+  const duplicate = buildServiceAddresses({
+    name: 'AdGuard Home',
+    infrastructure,
+    publishedPorts: mappings,
+    usedSubdomains: ['adguard'],
+  });
+  assert.equal(duplicate.subdomain, 'adguard-2');
+
+  const ambiguousMappings = [
+    { containerPort: 80, hostPort: 8080, hostIp: '0.0.0.0', protocol: 'tcp' },
+    { containerPort: 80, hostPort: 8081, hostIp: '0.0.0.0', protocol: 'tcp' },
+  ];
+  const ambiguous = buildServiceAddresses({ name: 'AdGuard Home', infrastructure, publishedPorts: ambiguousMappings });
+  assert.equal(ambiguous.webPort, 80);
+  assert.equal(ambiguous.publishedPort, null);
+  assert.equal(ambiguous.localUrl, null, 'multiple host mappings require the user to select one');
+  const selected = buildServiceAddresses({
+    name: 'AdGuard Home',
+    infrastructure,
+    publishedPorts: ambiguousMappings,
+    overrides: { publishedPort: ambiguousMappings[1] },
+  });
+  assert.equal(selected.localUrl, 'http://192.168.18.12:8081');
+  const loopback = buildServiceAddresses({
+    name: 'AdGuard Home',
+    infrastructure,
+    publishedPorts: [{ containerPort: 80, hostPort: 8080, hostIp: '127.0.0.1', protocol: 'tcp' }],
+  });
+  assert.equal(loopback.localUrl, null, 'a loopback-only binding must not produce a LAN address');
+  const localOnly = buildServiceAddresses({
+    name: 'AdGuard Home',
+    infrastructure,
+    publishedPorts: [{ containerPort: 80, hostPort: 8080, hostIp: '192.168.18.12', protocol: 'tcp' }],
+  });
+  assert.equal(localOnly.localUrl, 'http://192.168.18.12:8080');
+  assert.equal(localOnly.tailscaleUrl, null, 'a LAN-only binding must not produce a Tailscale address');
+
+  const hostNetwork = buildServiceAddresses({
+    name: 'Home Assistant',
+    infrastructure,
+    publishedPorts: [],
+    legacyPort: '8123',
+  });
+  assert.equal(hostNetwork.webPortSource, 'label');
+  assert.equal(hostNetwork.localUrl, 'http://192.168.18.12:8123');
 });
 
 test('cause codes for a downtime', () => {

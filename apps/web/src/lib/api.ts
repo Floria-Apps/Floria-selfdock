@@ -1,4 +1,4 @@
-import type { Action, Availability, Incident, Service, Settings, StackAction, StackBackup, StackFiles, StacksInfo, StackValidation } from '@shared/types';
+import type { Action, Availability, Incident, InfrastructureSettings, Service, ServiceAddressOverrides, Settings, StackAction, StackBackup, StackFiles, StacksInfo, StackValidation } from '@shared/types';
 import { tr } from './i18n';
 import { useStore } from './store';
 
@@ -26,7 +26,7 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
 
 export interface AuthState { setupRequired: boolean; user: { username: string } | null; demo: boolean }
 export interface HistoryData { incidents: Incident[]; availability: Availability[]; trackedSince: number }
-export type SettingsData = Settings & { version: string; dockerHost: string; demo: boolean };
+export type SettingsData = Settings & { infrastructure: InfrastructureSettings; version: string; dockerHost: string; demo: boolean };
 
 export const api = {
   authState: () => request<AuthState>('/auth/state'),
@@ -34,7 +34,7 @@ export const api = {
   login: (username: string, password: string) => request<{ ok: true }>('/auth/login', { method: 'POST', body: { username, password } }),
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST', body: {} }),
   act: (id: string, action: Action) => request<{ ok: true }>(`/services/${encodeURIComponent(id)}/action`, { method: 'POST', body: { action } }),
-  patch: (id: string, body: { name?: string; icon?: string; category?: string; hidden?: boolean }) =>
+  patch: (id: string, body: { name?: string; icon?: string; category?: string; hidden?: boolean; addresses?: ServiceAddressOverrides }) =>
     request<{ ok: true }>(`/services/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   addManual: (body: { name: string; url: string; category?: string; description?: string }) =>
     request<Service>('/services/manual', { method: 'POST', body }),
@@ -44,6 +44,8 @@ export const api = {
   dismiss: (id: string) => request<{ ok: true }>(`/alerts/${encodeURIComponent(id)}/dismiss`, { method: 'POST', body: {} }),
   settings: () => request<SettingsData>('/settings'),
   saveSettings: (s: Settings) => request<{ ok: true }>('/settings', { method: 'PUT', body: s }),
+  saveInfrastructure: (infrastructure: Partial<InfrastructureSettings>) =>
+    request<{ ok: true; infrastructure: InfrastructureSettings }>('/settings/infrastructure', { method: 'PUT', body: infrastructure }),
 
   stacks: () => request<StacksInfo>('/stacks'),
   stack: (name: string) => request<StackFiles>(`/stacks/${encodeURIComponent(name)}`),

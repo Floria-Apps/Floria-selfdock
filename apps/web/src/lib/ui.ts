@@ -3,7 +3,7 @@ import { create } from 'zustand';
 /** State of the layers that sit on top of the dashboard (menus and dialogs). */
 interface UiState {
   menu: { id: string; anchor: HTMLElement } | null;
-  confirm: { kind: 'restart' | 'stop' | 'hide' | 'remove'; id: string } | null;
+  confirm: { kind: 'restart' | 'pull' | 'stop' | 'hide' | 'remove'; id: string } | null;
   edit: string | null;
   adding: boolean;
   logs: string | null;

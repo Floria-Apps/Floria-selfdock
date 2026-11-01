@@ -13,6 +13,7 @@ SelfDock is the **web and Docker** counterpart of [Floria SelfHub](https://githu
 ## What it does
 
 - **Automatic cards.** Reads your Docker containers and builds the dashboard by itself (name, description, category and port).
+- **Centralized service addresses.** Set your server's local, Tailscale and domain details once, then use generated address suggestions for Docker services.
 - **Automatic icons.** Works out each app's logo from its image name, downloads it once from [dashboard-icons](https://github.com/homarr-labs/dashboard-icons) and keeps it in the data volume. After that it works offline.
 - **Real time.** Docker tells SelfDock when something changes, and the dashboard updates instantly over WebSocket.
 - **Start, stop and restart**, with confirmation, plus **logs**.
@@ -74,11 +75,31 @@ Everything is automatic, but you can fine-tune it with **labels** on the contain
 | `floria.description` | Short line under the name | `Movies and TV shows` |
 | `floria.icon` | Icon from dashboard-icons | `jellyfin` |
 | `floria.category` | `media`, `home`, `network`, `files`, `security`, `arr` or `other` | `media` |
-| `floria.port` | Port to open (useful with `network_mode: host`) | `8123` |
+| `floria.port` | Legacy port to open (useful with `network_mode: host`) | `8123` |
+| `floria.web_port` | Container port used by the web interface when it cannot be inferred | `8090` |
 | `floria.url` | Full address (if you use a reverse proxy) | `https://movies.home.lan` |
 | `floria.hide` | Do not show this container | `true` |
 
 Without labels, SelfDock uses the image name (e.g. `ghcr.io/immich-app/immich-server` → icon `immich`), recognises about 45 popular apps and puts the rest under "Other". You can also edit the name, icon and category from each app's ⋮ menu, or hide it.
+
+## Centralized service addresses
+
+Open **Settings → Infrastructure** to enter any of these optional values:
+
+| Setting | Example |
+|---|---|
+| Server local IP or hostname | `192.168.18.12` |
+| Main domain | `talona.com.br` |
+| Server Tailscale IP | `100.84.187.66` |
+| Reverse-proxy domain | `*.talona.com.br` |
+
+When a Docker service has a recognized web port, SelfDock suggests local and Tailscale URLs using the matching **published host port**, and a proxy URL using the service name. For example, with `floria.web_port=8090`, an internal web port `8090` published as host port `18090` produces `http://192.168.18.12:18090` and `http://100.84.187.66:18090`; it does not mistake the container port for the host port. If the interface port is not recognized, enter it in the service's **Edit → Access addresses** section or use the `floria.web_port` label.
+
+Docker mappings are displayed as `container port → host port` with their protocol. A published port is not automatically treated as the web interface, and UDP-only mappings are not offered as web ports. Services with multiple matching mappings can select one explicitly. The existing `floria.port` label remains supported for host-network services, and `floria.url` remains available as a custom address.
+
+Generated proxy suggestions use the reverse-proxy domain when configured, otherwise the main domain. For example, `AdGuard Home` suggests `https://adguard.talona.com.br`. Edit a service to set its own local/Tailscale URL, custom proxy domain or subdomain; these per-service choices do not change the global presets. Generated subdomains get a unique suffix when needed, and duplicate custom domains are rejected. Clearing a global field removes that preset, and **Restore suggested addresses** clears per-service overrides to use the current presets again.
+
+These settings only organize and suggest addresses. SelfDock does **not** configure DNS, Cloudflare Tunnel, reverse proxies, or Docker networking. Global values use the existing settings store; per-service overrides are stored with the existing service customizations. Existing services and `floria.url` labels remain compatible.
 
 ## Edit compose and .env files (stack editor)
 
@@ -155,8 +176,7 @@ Pull requests run type-checking, the tests, and a build-and-start check of the D
 - The automated tests run against the fake Docker (which speaks the same protocol), not a real Docker Engine. The Dockerfile image has not been built in an environment with Docker yet.
 - The stack editor's Apply actions and the `docker compose config` check were tested against a stand-in `docker` program, not a real Docker with the compose plugin.
 - The editor shows problems and keeps backups, but has no side-by-side diff yet.
-- The dashboard's main JavaScript file is about 1.2 MB (270 KB compressed), mostly the M3E components. The editor loads separately, only when you open a stack.
-- The Material Symbols icon font is 4.5 MB (it ships with the app so it works offline). It can be reduced by generating only the icons in use.
+- Material Symbols are registered as individual SVGs inside M3E instead of shipping the full icon font. M3E's core, theme and components are split into cacheable bundles, and the editor loads separately when you open a stack.
 - Manual services with a self-signed HTTPS certificate show as down.
 - One user for now; there is no password recovery in the interface.
 - Icons come from the dashboard-icons project; the logos belong to their respective projects.

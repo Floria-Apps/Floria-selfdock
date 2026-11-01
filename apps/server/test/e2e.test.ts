@@ -59,6 +59,24 @@ test('blocks requests from another origin', async () => {
   assert.equal(res.status, 403);
 });
 
+test('infrastructure settings are partial, validated, and clearable', async () => {
+  const initial = await api('/api/settings');
+  assert.deepEqual(initial.body.infrastructure, { localHost: '', baseDomain: '', tailscaleIp: '', proxyDomain: '' });
+  const first = await api('/api/settings/infrastructure', { method: 'PUT', json: {
+    localHost: '192.168.18.12', baseDomain: 'talona.com.br', tailscaleIp: '100.84.187.66', proxyDomain: '*.talona.com.br',
+  } });
+  assert.equal(first.res.status, 200);
+  const partial = await api('/api/settings/infrastructure', { method: 'PUT', json: { localHost: '192.168.18.13' } });
+  assert.equal(partial.res.status, 200);
+  assert.deepEqual(partial.body.infrastructure, {
+    localHost: '192.168.18.13', baseDomain: 'talona.com.br', tailscaleIp: '100.84.187.66', proxyDomain: '*.talona.com.br',
+  });
+  assert.equal((await api('/api/settings/infrastructure', { method: 'PUT', json: { tailscaleIp: '300.1.1.1' } })).res.status, 400);
+  const cleared = await api('/api/settings/infrastructure', { method: 'PUT', json: { localHost: '' } });
+  assert.equal(cleared.body.infrastructure.localHost, '');
+  await api('/api/settings/infrastructure', { method: 'PUT', json: { localHost: '192.168.18.12' } });
+});
+
 test('lists containers and builds the cards automatically', async () => {
   const list = await services();
   const by = Object.fromEntries(list.map(s => [s.id, s]));
@@ -68,10 +86,18 @@ test('lists containers and builds the cards automatically', async () => {
   assert.equal(by['docker:jellyfin'].catalog, 'jellyfin');
   assert.equal(by['docker:jellyfin'].description, '', 'known apps leave the description to the dashboard (translated)');
   assert.equal(by['docker:jellyfin'].port, 8096);
+  assert.deepEqual(by['docker:jellyfin'].addresses.publishedPorts, [
+    { containerPort: 8096, hostPort: 8096, hostIp: '0.0.0.0', protocol: 'tcp' },
+  ]);
+  assert.equal(by['docker:jellyfin'].addresses.localUrl, 'http://192.168.18.12:8096');
+  assert.equal(by['docker:jellyfin'].addresses.tailscaleUrl, 'http://100.84.187.66:8096');
+  assert.equal(by['docker:jellyfin'].addresses.proxyUrl, 'https://jellyfin.talona.com.br');
   assert.equal(by['docker:qbittorrent'].status, 'offline');
   assert.equal(by['docker:qbittorrent'].port, 8082);
   assert.equal(by['docker:homeassistant'].port, 8123, 'port from the floria.port label');
   assert.equal(by['docker:pihole'].port, 8081);
+  assert.equal(by['docker:pihole'].addresses.webPort, 80);
+  assert.equal(by['docker:pihole'].addresses.localUrl, 'http://192.168.18.12:8081');
   assert.equal(by['docker:wireguard'].port, null);
   assert.equal(by['docker:my-app'].name, 'My homemade app');
   assert.equal(by['docker:my-app'].description, 'An app I built myself');
@@ -82,6 +108,36 @@ test('lists containers and builds the cards automatically', async () => {
   assert.deepEqual(['homeassistant', 'pihole', 'wireguard', 'qbittorrent'].map(k => by['docker:' + k].name), ['Home Assistant', 'Pi-hole', 'WireGuard', 'qBittorrent']);
 });
 
+test('service address overrides persist without changing the global presets', async () => {
+  const saved = await api('/api/services/docker:jellyfin', { method: 'PATCH', json: {
+    addresses: { localUrl: 'http://media.lan:8099', proxyDomain: 'media.example.net' },
+  } });
+  assert.equal(saved.res.status, 200);
+  let jellyfin = (await services()).find(service => service.id === 'docker:jellyfin')!;
+  assert.equal(jellyfin.addresses.localUrl, 'http://media.lan:8099');
+  assert.equal(jellyfin.addresses.tailscaleUrl, 'http://100.84.187.66:8096');
+  assert.equal(jellyfin.addresses.proxyUrl, 'https://media.example.net');
+  assert.equal(jellyfin.addresses.customized.localUrl, true);
+  const updatedGlobal = await api('/api/settings/infrastructure', { method: 'PUT', json: { proxyDomain: '*.selfdock.test' } });
+  assert.equal(updatedGlobal.res.status, 200);
+  jellyfin = (await services()).find(service => service.id === 'docker:jellyfin')!;
+  assert.equal(jellyfin.addresses.proxyUrl, 'https://media.example.net', 'a per-service domain survives global changes');
+  assert.equal((await services()).find(service => service.id === 'docker:navidrome')!.addresses.proxyUrl, 'https://navidrome.selfdock.test');
+  assert.equal((await api('/api/services/docker:navidrome', { method: 'PATCH', json: {
+    addresses: { proxyDomain: 'media.example.net' },
+  } })).res.status, 409);
+  assert.equal((await api('/api/services/docker:jellyfin', { method: 'PATCH', json: {
+    addresses: { publishedPort: { containerPort: 1, hostPort: 2, hostIp: null, protocol: 'tcp' } },
+  } })).res.status, 400);
+  assert.equal((await api('/api/services/docker:jellyfin', { method: 'PATCH', json: {
+    addresses: { localUrl: null, proxyDomain: null },
+  } })).res.status, 200);
+  jellyfin = (await services()).find(service => service.id === 'docker:jellyfin')!;
+  assert.equal(jellyfin.addresses.localUrl, 'http://192.168.18.12:8096');
+  assert.equal(jellyfin.addresses.proxyUrl, 'https://jellyfin.selfdock.test');
+  await api('/api/settings/infrastructure', { method: 'PUT', json: { proxyDomain: '*.talona.com.br' } });
+});
+
 test('downloads icons automatically and serves them from the local cache', async () => {
   const withIcon = await until(async () => (await services()).find(s => s.id === 'docker:jellyfin' && s.icon), 15000).catch(() => null);
   if (!withIcon) { console.log('  (no internet access: skipping the icon check)'); return; }
@@ -90,6 +146,10 @@ test('downloads icons automatically and serves them from the local cache', async
   assert.equal(img.res.status, 200);
   assert.match(img.res.headers.get('content-type') ?? '', /svg/);
   assert.ok(fs.existsSync(path.join(dataDir, 'icons', 'jellyfin.svg')));
+  fs.writeFileSync(path.join(dataDir, 'icons', 'navidrome.svg'), '<svg><g><animateTransform attributeName="transform"/></g></svg>');
+  const navidrome = await api('/api/icons/navidrome.svg');
+  assert.equal(navidrome.res.status, 200);
+  assert.doesNotMatch(navidrome.body, /<animateTransform\b/i);
   assert.equal((await services()).find(s => s.id === 'docker:my-app')!.icon, null, 'unknown apps get no icon (the dashboard uses a fallback)');
 });
 

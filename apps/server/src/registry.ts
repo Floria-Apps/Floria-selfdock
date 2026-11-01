@@ -1,5 +1,5 @@
 import os from 'node:os';
-import type { Action, Alert, Cause, DockerState, Metrics, ServerMsg, Service, Status } from '@shared/types';
+import type { Action, Alert, Cause, DockerState, InfrastructureSettings, Metrics, ServerMsg, Service, ServiceAddressOverrides, Status } from '@shared/types';
 import { CATEGORY_IDS } from '@shared/categories';
 import { getSetting, numSetting, setSetting, type DB } from './db';
 import { DockerClient, DockerError, type DockerContainer, type DockerEvent } from './docker';
@@ -10,8 +10,9 @@ import type { Hub } from './hub';
 import { HttpError } from './errors';
 import { listIncidents, computeAvailability } from './history';
 import type { RunningContainer } from './compose-validate';
+import { addressOverridesSchema, buildServiceAddresses, getInfrastructureSettings, publishedPorts } from './service-addresses';
 
-interface Override { name: string | null; icon: string | null; category: string | null; hidden: boolean }
+interface Override { name: string | null; icon: string | null; category: string | null; hidden: boolean; addresses: ServiceAddressOverrides }
 interface ManualRow { id: number; name: string; url: string; description: string }
 interface DieInfo { exitCode: number; oom: boolean; at: number }
 
@@ -88,10 +89,11 @@ export class Registry {
   private abort = new AbortController();
   private alerts: Alert[] = [];
   private alertsJson = '[]';
+  private infrastructure: InfrastructureSettings;
   dockerState: DockerState = { ok: false };
   metrics: Metrics | null = null;
 
-  constructor(private d: RegistryDeps) {}
+  constructor(private d: RegistryDeps) { this.infrastructure = getInfrastructureSettings(d.db); }
 
   /* ---------------- lifecycle ---------------- */
 
@@ -130,6 +132,23 @@ export class Registry {
   }
 
   list() { return [...this.services.values()]; }
+
+  validateInfrastructure(next: InfrastructureSettings) {
+    const addresses = this.list().map(service =>
+      this.addressesFor(service.id, service.name, next, this.overrides.get(service.id)?.addresses ?? {}));
+    for (let i = 0; i < addresses.length; i++) {
+      for (let j = i + 1; j < addresses.length; j++) {
+        if (addresses[i].proxyUrl && addresses[i].proxyUrl === addresses[j].proxyUrl) {
+          throw new HttpError(409, 'These settings would create duplicate proxy domains. Change a service subdomain or custom domain first.', 'duplicate_domain');
+        }
+      }
+    }
+  }
+
+  setInfrastructure(next: InfrastructureSettings) {
+    this.infrastructure = next;
+    for (const service of this.list()) this.rebuild(service.id);
+  }
 
   /* ---------------- Docker ---------------- */
 
@@ -314,16 +333,18 @@ export class Registry {
     const known = knownFor(auto);
     const pending = this.pending.get(key);
     const labelCat = L['floria.category'];
+    const displayName = ov?.name || L['floria.name'] || displayNameFor(auto) || prettifyName(composeService || name);
     return {
       id: key,
       source: 'docker',
-      name: ov?.name || L['floria.name'] || displayNameFor(auto) || prettifyName(composeService || name),
+      name: displayName,
       description: L['floria.description'] || (known ? '' : c.Image.split('@')[0].replace(/^.*\//, '')),
       catalog: known?.key ?? null,
       icon: this.resolveIcon(ov?.icon ? [ov.icon] : auto),
       category: ov?.category || (labelCat && CATEGORY_IDS.includes(labelCat) ? labelCat : null) || known?.category || 'other',
       port: pickPort(c),
       url: L['floria.url'] || null,
+      addresses: this.addressesFor(key, displayName, this.infrastructure, ov?.addresses ?? {}),
       image: c.Image,
       imageUpdateStatus: this.imageUpdates.get(c.Image) ?? 'checking',
       status: pending ? PENDING_STATUS[pending.action] : mapStatus(c.State, c.Status),
@@ -337,16 +358,18 @@ export class Registry {
     const known = knownFor(auto);
     let port: number | null = null;
     try { const u = new URL(row.url); port = u.port ? Number(u.port) : null; } catch { /* invalid URL */ }
+    const displayName = ov?.name || row.name;
     return {
       id: key,
       source: 'manual',
-      name: ov?.name || row.name,
+      name: displayName,
       description: row.description,
       catalog: known?.key ?? null,
       icon: this.resolveIcon(ov?.icon ? [ov.icon] : auto),
       category: ov?.category || known?.category || 'other',
       port,
       url: row.url,
+      addresses: this.addressesFor(key, displayName, this.infrastructure, ov?.addresses ?? {}),
       image: null,
       status: this.manualStatus.get(key) ?? 'starting',
       hidden: !!ov?.hidden,
@@ -362,6 +385,22 @@ export class Registry {
     }
     if (!this.pending.has(next.id)) this.observe(next);
     this.refreshAlerts();
+  }
+
+  private addressesFor(key: string, name: string, infrastructure: InfrastructureSettings, overrides: ServiceAddressOverrides) {
+    const container = this.raw.get(key);
+    const usedSubdomains = [...this.services.values()]
+      .filter(service => service.id !== key)
+      .map(service => service.addresses.subdomain);
+    return buildServiceAddresses({
+      name,
+      infrastructure,
+      publishedPorts: container ? publishedPorts(container.Ports) : [],
+      overrides,
+      usedSubdomains,
+      legacyPort: container?.Labels?.['floria.port'],
+      webPortLabel: container?.Labels?.['floria.web_port'],
+    });
   }
 
   private removeService(key: string) {
@@ -531,19 +570,49 @@ export class Registry {
   /* ---------------- customisation ---------------- */
 
   private loadOverrides() {
-    const rows = this.d.db.prepare('SELECT service_key, name, icon, category, hidden FROM overrides').all() as unknown as
-      { service_key: string; name: string | null; icon: string | null; category: string | null; hidden: number }[];
+    const rows = this.d.db.prepare('SELECT service_key, name, icon, category, hidden, addresses FROM overrides').all() as unknown as
+      { service_key: string; name: string | null; icon: string | null; category: string | null; hidden: number; addresses: string | null }[];
     this.overrides.clear();
-    for (const r of rows) this.overrides.set(r.service_key, { name: r.name, icon: r.icon, category: r.category, hidden: !!r.hidden });
+    for (const r of rows) {
+      const addresses = r.addresses ? addressOverridesSchema.parse(JSON.parse(r.addresses)) : {};
+      this.overrides.set(r.service_key, { name: r.name, icon: r.icon, category: r.category, hidden: !!r.hidden, addresses });
+    }
   }
 
-  async patch(key: string, body: { name?: string; icon?: string; category?: string; hidden?: boolean }, rebuild = true) {
+  async patch(key: string, body: { name?: string; icon?: string; category?: string; hidden?: boolean; addresses?: ServiceAddressOverrides }, rebuild = true) {
     if (rebuild && !this.services.has(key)) throw new HttpError(404, 'App not found.', 'service_not_found');
-    const cur = this.overrides.get(key) ?? { name: null, icon: null, category: null, hidden: false };
+    const cur = this.overrides.get(key) ?? { name: null, icon: null, category: null, hidden: false, addresses: {} };
     const next: Override = { ...cur };
     if (body.name !== undefined) next.name = body.name.trim() || null;
     if (body.category !== undefined) next.category = body.category || null;
     if (body.hidden !== undefined) next.hidden = body.hidden;
+    if (body.addresses) {
+      const updated = { ...next.addresses };
+      for (const field of Object.keys(body.addresses) as (keyof ServiceAddressOverrides)[]) {
+        const value = body.addresses[field];
+        if (value === undefined || value === null || (field === 'subdomain' && value === '')) delete updated[field];
+        else Object.assign(updated, { [field]: value });
+      }
+      next.addresses = addressOverridesSchema.parse(updated);
+      const service = this.services.get(key);
+      if (service) {
+        const candidate = this.addressesFor(key, next.name || service.name, this.infrastructure, next.addresses);
+        const others = [...this.services.values()].filter(item => item.id !== key);
+        if (others.some(item => item.addresses.subdomain === candidate.subdomain)) {
+          throw new HttpError(409, 'That subdomain is already assigned to another service.', 'duplicate_domain');
+        }
+        if (candidate.proxyUrl && others.some(item => item.addresses.proxyUrl === candidate.proxyUrl)) {
+          throw new HttpError(409, 'That proxy domain is already assigned to another service.', 'duplicate_domain');
+        }
+      }
+      const container = this.raw.get(key);
+      const selected = next.addresses.publishedPort;
+      if (selected && (!container || !publishedPorts(container.Ports).some(port =>
+        port.containerPort === selected.containerPort && port.hostPort === selected.hostPort
+        && port.hostIp === selected.hostIp && port.protocol === selected.protocol))) {
+        throw new HttpError(400, 'The selected port mapping is not published by this container.', 'invalid_port_mapping');
+      }
+    }
     if (body.icon !== undefined) {
       if (!body.icon.trim()) next.icon = null;
       else {
@@ -554,9 +623,9 @@ export class Registry {
       }
     }
     this.d.db.prepare(
-      `INSERT INTO overrides(service_key, name, icon, category, hidden) VALUES(?, ?, ?, ?, ?)
-       ON CONFLICT(service_key) DO UPDATE SET name = excluded.name, icon = excluded.icon, category = excluded.category, hidden = excluded.hidden`,
-    ).run(key, next.name, next.icon, next.category, next.hidden ? 1 : 0);
+      `INSERT INTO overrides(service_key, name, icon, category, hidden, addresses) VALUES(?, ?, ?, ?, ?, ?)
+       ON CONFLICT(service_key) DO UPDATE SET name = excluded.name, icon = excluded.icon, category = excluded.category, hidden = excluded.hidden, addresses = excluded.addresses`,
+    ).run(key, next.name, next.icon, next.category, next.hidden ? 1 : 0, Object.keys(next.addresses).length ? JSON.stringify(next.addresses) : null);
     this.overrides.set(key, next);
     if (rebuild) { this.rebuild(key); this.refreshAlerts(); }
   }

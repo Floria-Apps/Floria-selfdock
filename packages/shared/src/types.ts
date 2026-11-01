@@ -5,6 +5,42 @@ export type Action = 'start' | 'stop' | 'restart';
 export type Source = 'docker' | 'manual';
 export type ImageUpdateStatus = 'checking' | 'current' | 'outdated' | 'unknown';
 
+export interface InfrastructureSettings {
+  localHost: string;
+  baseDomain: string;
+  tailscaleIp: string;
+  proxyDomain: string;
+}
+
+export interface PublishedPort {
+  containerPort: number;
+  hostPort: number | null;
+  hostIp: string | null;
+  protocol: string;
+}
+
+export interface ServiceAddressOverrides {
+  webPort?: number | null;
+  publishedPort?: PublishedPort | null;
+  localUrl?: string | null;
+  tailscaleUrl?: string | null;
+  proxyDomain?: string | null;
+  subdomain?: string | null;
+}
+
+export interface ServiceAddresses {
+  publishedPorts: PublishedPort[];
+  webPort: number | null;
+  webPortSource: 'override' | 'label' | 'inferred' | null;
+  publishedPort: PublishedPort | null;
+  localUrl: string | null;
+  tailscaleUrl: string | null;
+  proxyUrl: string | null;
+  subdomain: string;
+  presets: { localUrl: string | null; tailscaleUrl: string | null; proxyUrl: string | null };
+  customized: { webPort: boolean; publishedPort: boolean; localUrl: boolean; tailscaleUrl: boolean; proxyDomain: boolean; subdomain: boolean };
+}
+
 export interface Service {
   /** Stable key: `docker:<container-name>` or `manual:<id>`. */
   id: string;
@@ -20,6 +56,7 @@ export interface Service {
   port: number | null;
   /** Only set when the app declared `floria.url` (or for manual services). */
   url: string | null;
+  addresses: ServiceAddresses;
   image: string | null;
   imageUpdateStatus?: ImageUpdateStatus;
   status: Status;

@@ -7,10 +7,11 @@ import { AppIcon } from './AppIcon';
 import { Icon } from '@/ui/Icon';
 import { StatusChip } from './StatusChip';
 import { STATUS_COLORS, statusLabel, isBusy } from '@/lib/status';
-import { openApp } from '@/lib/actions';
+import { appLocalUrl, errorText, isSafeHttpUrl, openApp } from '@/lib/actions';
 import { describeService } from '@/lib/describe';
 import { useT } from '@/lib/i18n';
 import { useUi } from '@/lib/ui';
+import { useStore } from '@/lib/store';
 
 interface Props { service: Service; showPort: boolean; logos: boolean }
 
@@ -32,18 +33,56 @@ function MoreButton({ service, className = '' }: { service: Service; className?:
     onClick={e => { e.stopPropagation(); openMenu(service.id, e.currentTarget as HTMLElement); }} />;
 }
 
+function AccessLinks({ service }: { service: Service }) {
+  const t = useT();
+  const addresses = [
+    { label: t('home.address.local'), url: appLocalUrl(service) },
+    { label: t('home.address.tailscale'), url: service.addresses.tailscaleUrl },
+    { label: t('home.address.proxy'), url: service.addresses.proxyUrl },
+    { label: t('home.address.custom'), url: service.url },
+  ].filter((entry, index, list): entry is { label: string; url: string } =>
+    isSafeHttpUrl(entry.url) && list.findIndex(other => other.url === entry.url) === index);
+  const copy = async (event: Event, url: string) => {
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(url);
+      useStore.getState().say(t('home.address.copied'), 'success');
+    } catch (error) {
+      useStore.getState().say(errorText(error), 'error');
+    }
+  };
+  if (!addresses.length) return <span className="t-body-s text-on-surface-variant">{t('home.address.notConfigured')}</span>;
+  return (
+    <details className="service-addresses" onClick={event => event.stopPropagation()}>
+      <summary className="t-label-m cursor-pointer text-primary">{t('home.address.show', { count: addresses.length })}</summary>
+      <span className="mt-2 grid gap-1">
+        {addresses.map(({ label, url }) => (
+          <span key={url} className="flex min-w-0 items-center gap-1">
+            <a href={url} target="_blank" rel="noopener noreferrer" onClick={event => event.stopPropagation()}
+              className="t-body-s min-w-0 flex-1 truncate text-primary underline-offset-2 hover:underline" title={`${label}: ${url}`}>
+              <span className="mr-1 text-on-surface-variant">{label}:</span>{url}
+            </a>
+            <IconButton icon="content_copy" label={`${t('common.copy')} ${label}`} onClick={event => void copy(event, url)} />
+          </span>
+        ))}
+      </span>
+    </details>
+  );
+}
+
 export function AppCard({ service, showPort, logos }: Props) {
   useT();
   const off = service.status === 'offline';
   return (
-    <div className="relative h-full">
-      <M3eCard variant="filled" actionable className="block h-full" onClick={() => openApp(service)}>
+    <div className="relative h-full min-w-0">
+      <M3eCard variant="filled" actionable className="block h-full min-w-0" onClick={() => openApp(service)}>
         <div className="flex h-full flex-col gap-3 text-left">
           <AppIcon service={service} size={48} radius={16} logos={logos} />
           <span className="block min-w-0">
             <span className={`t-title-m block truncate ${off ? 'text-on-surface-variant' : ''}`}>{service.name}</span>
             <span className="t-body-m line-clamp-2 block text-on-surface-variant">{describeService(service)}</span>
           </span>
+          <AccessLinks service={service} />
           <span className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
             <span className="flex flex-wrap items-center gap-2"><StatusChip status={service.status} /><UpdateBadge service={service} /></span>
             {showPort && service.port && <span className="t-label-m text-on-surface-variant">:{service.port}</span>}
@@ -69,7 +108,10 @@ export function AppRow({ service, showPort, logos }: Props) {
       }}>
       <span slot="leading"><AppIcon service={service} size={40} radius={20} logos={logos} /></span>
       <span className={off ? 'text-on-surface-variant' : ''}>{service.name}</span>
-      <span slot="supporting-text">{describeService(service)}</span>
+      <span slot="supporting-text" className="grid gap-1">
+        <span>{describeService(service)}</span>
+        <AccessLinks service={service} />
+      </span>
       <div slot="trailing" className="flex items-center gap-2">
         <UpdateBadge service={service} />
         <span className="hidden sm:inline-flex"><StatusChip status={service.status} /></span>

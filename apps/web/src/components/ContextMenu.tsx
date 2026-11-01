@@ -36,6 +36,7 @@ export function ContextMenu() {
       { key: 'open', icon: 'open_in_new', label: t('menu.open'), disabled: !appUrl(service), run: () => window.open(appUrl(service)!, '_blank', 'noopener') },
       ...(docker ? [
         { key: 'restart', icon: 'restart_alt', label: t('menu.restart'), disabled: busy || off, run: () => set({ confirm: { kind: 'restart', id: service.id } }) },
+        { key: 'pull', icon: 'download', label: 'Atualizar (Pull)', disabled: busy, run: () => set({ confirm: { kind: 'pull', id: service.id } }) },
         off ? { key: 'start', icon: 'play_circle', label: t('menu.start'), disabled: busy, run: () => void runAction(service, 'start') }
             : { key: 'stop', icon: 'stop_circle', label: t('menu.stop'), disabled: busy, run: () => set({ confirm: { kind: 'stop', id: service.id } }) },
         { key: 'logs', icon: 'terminal', label: t('menu.logs'), run: () => set({ logs: service.id }) },

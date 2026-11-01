@@ -47,13 +47,14 @@ export function ChipSelect<T extends string>({ value, onChange, options, label }
 
 export function Segmented<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void;
-  options: { v: T; label?: string; icon: string; aria?: string; iconOnly?: boolean }[];
+  options: { v: T; label?: string; icon?: string; aria?: string; iconOnly?: boolean }[];
 }) {
+  const iconOnly = options.every(option => option.iconOnly);
   return (
-    <M3eSegmentedButton hideSelectionIndicator={options.every(o => o.iconOnly)} onChange={e => { const v = (e.target as HTMLElement & { value?: string }).value; if (v) onChange(v as T); }}>
+    <M3eSegmentedButton className={iconOnly ? 'w-auto' : 'w-full min-w-0'} hideSelectionIndicator={iconOnly} onChange={e => { const v = (e.target as HTMLElement & { value?: string }).value; if (v) onChange(v as T); }}>
       {options.map(o => (
-        <M3eButtonSegment key={o.v} value={o.v} checked={value === o.v} aria-label={o.aria ?? o.label} title={o.aria ?? o.label}>
-          <Icon slot="icon" name={o.icon} />
+        <M3eButtonSegment key={o.v} value={o.v} checked={value === o.v} aria-label={o.aria ?? o.label} title={o.aria ?? o.label} className={iconOnly ? '' : 'min-w-0 flex-1'}>
+          {o.icon && <Icon slot="icon" name={o.icon} />}
           {o.label}
         </M3eButtonSegment>
       ))}

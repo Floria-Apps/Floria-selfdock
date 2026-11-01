@@ -18,6 +18,7 @@ import { HttpError } from './errors';
 import { StackStore } from './stacks';
 import { StackJobs } from './stack-jobs';
 import { registerStackRoutes } from './stacks-routes';
+import { addressOverridesSchema, getInfrastructureSettings, infrastructureSchema, saveInfrastructureSettings } from './service-addresses';
 
 const VERSION = '0.1.0';
 
@@ -149,6 +150,7 @@ async function main() {
       icon: z.string().max(60).optional(),
       category: z.string().refine(v => CATEGORY_IDS.includes(v), 'unknown category').optional(),
       hidden: z.boolean().optional(),
+      addresses: addressOverridesSchema.optional(),
     }).parse(req.body);
     await registry.patch(idParam(req), body);
     return { ok: true };
@@ -189,6 +191,7 @@ async function main() {
   app.get('/api/settings', async () => ({
     metricsIntervalSec: numSetting(db, 'metrics_interval', 5),
     checkIntervalSec: numSetting(db, 'check_interval', 30),
+    infrastructure: getInfrastructureSettings(db),
     version: VERSION,
     dockerHost: config.dockerHost,
     demo: config.demo,
@@ -204,6 +207,15 @@ async function main() {
     return { ok: true };
   });
 
+  app.put('/api/settings/infrastructure', async req => {
+    const partial = infrastructureSchema.partial().parse(req.body);
+    const next = infrastructureSchema.parse({ ...getInfrastructureSettings(db), ...partial });
+    registry.validateInfrastructure(next);
+    saveInfrastructureSettings(db, next);
+    registry.setInfrastructure(next);
+    return { ok: true, infrastructure: next };
+  });
+
   /* ---------- icons ---------- */
   app.get('/api/icons/:file', async (req, reply) => {
     const { file } = z.object({ file: z.string().regex(/^[a-z0-9._-]+\.(svg|png)$/) }).parse(req.params);
@@ -212,6 +224,11 @@ async function main() {
     reply.header('Cache-Control', 'public, max-age=604800');
     reply.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
     reply.type(file.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+    if (file === 'navidrome.svg') {
+      const svg = fs.readFileSync(full, 'utf8')
+        .replace(/<animateTransform\b[^>]*(?:\/>|>[\s\S]*?<\/animateTransform\s*>)/gi, '');
+      return reply.send(svg);
+    }
     return reply.send(fs.createReadStream(full));
   });
 

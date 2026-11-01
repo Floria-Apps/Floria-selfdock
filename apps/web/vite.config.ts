@@ -20,5 +20,18 @@ export default defineConfig({
       },
     },
   },
-  build: { outDir: 'dist', chunkSizeWarningLimit: 800 },
+  build: {
+    outDir: 'dist',
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/@m3e/web/dist/theme.js')) return 'm3e-theme';
+          if (id.includes('/node_modules/@material/material-color-utilities/')) return 'm3e-theme';
+          if (id.includes('/node_modules/@m3e/web/dist/core.js')) return 'm3e-core';
+          if (id.includes('/node_modules/@m3e/')) return 'm3e';
+        },
+      },
+    },
+  },
 });

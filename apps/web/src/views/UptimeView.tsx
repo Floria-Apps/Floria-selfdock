@@ -139,7 +139,7 @@ export function UptimeView() {
 
   const recent = now - data.trackedSince < 7 * 24 * 60 * 60 * 1000;
   return (
-    <div className="grid max-w-6xl gap-4">
+    <div className="page-content page-content--wide">
       {error && <M3eCard variant="filled" className="block border border-error-container" role="alert">
         <div className="flex flex-wrap items-center gap-3"><Icon name="error" fill className="text-error" /><p className="t-body-m min-w-0 flex-1">{error}</p><Btn variant="tonal" icon="refresh" onClick={retry}>{t('common.retry')}</Btn></div>
       </M3eCard>}

@@ -11,9 +11,12 @@ export function AppIcon({ service, size, radius, logos = true }: { service: Serv
   const box = { width: size, height: size, borderRadius: radius };
 
   if (logos && service.icon && !failed) {
+    const iconUrl = service.icon === 'navidrome.svg'
+      ? `/api/icons/${service.icon}?v=2`
+      : `/api/icons/${service.icon}`;
     return (
       <span className="flex shrink-0 items-center justify-center" style={{ ...box, background: '#F7FAF9', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.06)' }}>
-        <img src={`/api/icons/${service.icon}`} alt="" draggable={false} onError={() => setFailed(true)}
+        <img src={iconUrl} alt="" draggable={false} onError={() => setFailed(true)}
           style={{ width: size * 0.62, height: size * 0.62, objectFit: 'contain', filter: off ? 'grayscale(1)' : 'none', opacity: off ? 0.55 : 1 }} />
       </span>
     );

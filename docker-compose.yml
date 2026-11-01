@@ -12,7 +12,7 @@ services:
     container_name: floria-selfdock
     restart: unless-stopped
     ports:
-      - "${SELFDOCK_PORT:-3000}:3000"
+      - "${SELFDOCK_PORT:-3719}:3000"
     environment:
       DOCKER_HOST: tcp://docker-proxy:2375
       TZ: ${TZ:-UTC}

@@ -1,10 +1,13 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { M3eAvatar } from '@m3e/react/avatar';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { M3eAppBar } from '@m3e/react/app-bar';
 import { M3eCard } from '@m3e/react/card';
+import { M3eDivider } from '@m3e/react/divider';
 import { M3eFab } from '@m3e/react/fab';
+import { M3eIconButton } from '@m3e/react/icon-button';
+import { M3eMenu, M3eMenuItem } from '@m3e/react/menu';
 import { M3eNavBar } from '@m3e/react/nav-bar';
 import { M3eSearchBar } from '@m3e/react/search';
+import type { M3eMenuElement } from '@m3e/web/menu';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { startLive, stopLive } from '@/lib/live';
@@ -22,6 +25,7 @@ const AuthView = lazy(() => import('@/views/AuthView').then(m => ({ default: m.A
 const HistoryView = lazy(() => import('@/views/HistoryView').then(m => ({ default: m.HistoryView })));
 const UptimeView = lazy(() => import('@/views/UptimeView').then(m => ({ default: m.UptimeView })));
 const HomeView = lazy(() => import('@/views/HomeView').then(m => ({ default: m.HomeView })));
+const UpdateView = lazy(() => import('@/views/UpdateView').then(m => ({ default: m.UpdateView })));
 const SettingsView = lazy(() => import('@/views/SettingsView').then(m => ({ default: m.SettingsView })));
 const StacksView = lazy(() => import('@/views/StacksView').then(m => ({ default: m.StacksView })));
 
@@ -38,6 +42,7 @@ export default function App() {
   const [view, setView] = useState<AppView>('home');
   const [query, setQuery] = useState('');
   const [bootError, setBootError] = useState('');
+  const accountMenu = useRef<M3eMenuElement>(null);
 
   const boot = () => {
     setBootError('');
@@ -53,6 +58,9 @@ export default function App() {
   }, [auth]);
 
   const logout = () => { void api.logout().finally(() => { stopLive(); setAuth('login', null); setView('home'); }); };
+  const openAccountMenu = (event: Event) => {
+    if (event.currentTarget instanceof HTMLElement) accountMenu.current?.show(event.currentTarget);
+  };
 
   if (bootError) {
     return (
@@ -81,7 +89,7 @@ export default function App() {
       {/* side rail on desktop */}
       <AppSidebar view={view} onPick={setView} alertCount={alertCount} onAddService={() => setUi({ adding: true })} />
 
-      <main className="mx-auto w-full max-w-6xl px-4 pb-36 pt-4 md:px-8 md:pb-16">
+      <main className="mx-auto w-full max-w-7xl px-4 pb-32 pt-3 md:px-8 md:pb-12 md:pt-5">
         <M3eAppBar size="small" aria-label={t('nav.aria')} className="mb-6 block">
           {view === 'home' ? (
             <M3eSearchBar slot="title" clearable clearLabel={t('search.clear')} className="block w-full min-w-0 md:max-w-xl" onClear={() => setQuery('')}>
@@ -91,9 +99,17 @@ export default function App() {
           ) : <h1 slot="title" className="t-title-l block truncate">{t(`nav.${view}` as const)}</h1>}
           <div slot="trailing" className="flex items-center gap-1">
             <IconButton variant="tonal" icon={dark ? 'light_mode' : 'dark_mode'} label={dark ? t('theme.toLight') : t('theme.toDark')} onClick={() => prefs.set({ theme: dark ? 'light' : 'dark' })} />
-            <M3eAvatar title={username ?? ''} aria-label={t('account.label', { name: username ?? '' })}><Icon name="person" fill /></M3eAvatar>
+            <M3eIconButton variant="tonal" aria-label={t('account.label', { name: username ?? '' })} title={t('account.label', { name: username ?? '' })} onClick={openAccountMenu}>
+              <img src="/floria-dock.png" alt="" aria-hidden="true" className="account-menu-logo" />
+            </M3eIconButton>
           </div>
         </M3eAppBar>
+        <M3eMenu ref={accountMenu}>
+          <M3eMenuItem disabled><Icon slot="icon" name="person" fill />{username}</M3eMenuItem>
+          <M3eDivider />
+          <M3eMenuItem onClick={() => setView('settings')}><Icon slot="icon" name="settings" />{t('nav.settings')}</M3eMenuItem>
+          <M3eMenuItem onClick={logout}><Icon slot="icon" name="logout" />{t('settings.logout')}</M3eMenuItem>
+        </M3eMenu>
 
         {conn !== 'open' && (
           <M3eCard variant="filled" className="mb-4 block" role="status">
@@ -106,6 +122,7 @@ export default function App() {
 
         <Suspense fallback={<Loading className="min-h-40 items-center" />}>
           {view === 'home' && <HomeView query={query} go={setView} />}
+          {view === 'update' && <UpdateView />}
           {view === 'alerts' && <AlertsView go={setView} />}
           {view === 'uptime' && <UptimeView />}
           {view === 'history' && <HistoryView />}

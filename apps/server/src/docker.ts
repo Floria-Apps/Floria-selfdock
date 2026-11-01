@@ -83,13 +83,17 @@ export class DockerClient {
   async imageUpdateStatus(reference: string): Promise<'current' | 'outdated'> {
     if (reference.includes('@sha256:')) return 'current';
     const encoded = encodeURIComponent(reference);
-    const [local, remote] = await Promise.all([
-      this.json<{ RepoDigests?: string[] }>(`/images/${encoded}/json`),
-      this.json<{ Descriptor?: { digest?: string } }>(`/distribution/${encoded}/json`),
-    ]);
-    const remoteDigest = remote.Descriptor?.digest;
-    if (!remoteDigest || !local.RepoDigests?.length) throw new Error('Image digest is unavailable.');
-    return local.RepoDigests.some(repoDigest => repoDigest.endsWith(`@${remoteDigest}`)) ? 'current' : 'outdated';
+    try {
+      const [local, remote] = await Promise.all([
+        this.json<{ RepoDigests?: string[] }>(`/images/${encoded}/json`),
+        this.json<{ Descriptor?: { digest?: string } }>(`/distribution/${encoded}/json`),
+      ]);
+      const remoteDigest = remote.Descriptor?.digest;
+      if (!remoteDigest || !local.RepoDigests?.length) return 'current';
+      return local.RepoDigests.some(repoDigest => repoDigest.endsWith(`@${remoteDigest}`)) ? 'current' : 'outdated';
+    } catch {
+      return 'current';
+    }
   }
 
   /** 204 (done) and 304 (already in that state) both mean success. */

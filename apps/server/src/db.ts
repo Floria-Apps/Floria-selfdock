@@ -29,6 +29,7 @@ const MIGRATIONS: string[] = [
   CREATE TABLE dismissed (alert_id TEXT PRIMARY KEY, until INTEGER NOT NULL);
   CREATE TABLE icon_cache (name TEXT PRIMARY KEY, checked_at INTEGER NOT NULL);
   `,
+  `ALTER TABLE overrides ADD COLUMN addresses TEXT;`,
 ];
 
 export function openDb(dataDir: string): DB {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { M3eCard } from '@m3e/react/card';
 import { api } from '@/lib/api';
 import { errorText } from '@/lib/actions';
 import { useT } from '@/lib/i18n';
@@ -31,25 +32,43 @@ export function AuthView({ setup }: { setup: boolean }) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <form onSubmit={e => void submit(e)} className="w-full max-w-md rounded-[28px] bg-sc-low p-8">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-on-primary"><Icon name="anchor" fill size={36} /></span>
-          <h1 className="t-headline-s">{setup ? t('auth.welcome') : t('auth.login')}</h1>
-          <p className="t-body-m text-on-surface-variant">{setup ? t('auth.setupText') : t('auth.loginText')}</p>
-        </div>
-        <div className="flex flex-col gap-3">
-          <TextField id="u" label={t('auth.username')} value={username} onChange={setUsername} autoFocus autoComplete="username"
-            support={setup ? t('auth.usernameHelp') : ''} />
-          <TextField id="p" label={t('auth.password')} type="password" value={password} onChange={setPassword}
-            autoComplete={setup ? 'new-password' : 'current-password'} support={setup ? t('auth.passwordHelp') : ''} />
-          {setup && <TextField id="p2" label={t('auth.repeat')} type="password" value={again} onChange={setAgain} autoComplete="new-password"
-            error={mismatch} support={mismatch ? t('auth.mismatch') : ''} />}
-        </div>
-        {error && <p role="alert" className="t-body-m mt-2 flex items-start gap-2 text-error"><Icon name="error" size={18} />{error}</p>}
-        <div className="mt-6 flex justify-end"><Btn type="submit" variant="filled" disabled={!can}>{setup ? t('auth.create') : t('auth.submit')}</Btn></div>
-        {demo && <p className="t-body-s mt-4 text-center text-on-surface-variant">{t('auth.demo')}</p>}
-      </form>
+    <main className="auth-page flex min-h-screen items-center justify-center p-4 md:p-8">
+      <div className="auth-layout grid w-full max-w-5xl items-stretch gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(380px,.9fr)]">
+        <M3eCard variant="filled" className="auth-brand-panel hidden lg:flex">
+          <div className="auth-brand-content flex max-w-md flex-col items-start justify-center">
+            <img src="/floria-dock.png" alt="" className="h-20 w-20 rounded-[26px] object-cover" />
+            <div>
+              <p className="t-headline-s">{t('app.name')}</p>
+              <p className="t-body-l mt-3 max-w-sm text-on-surface-variant">{t('auth.desktopTagline')}</p>
+            </div>
+          </div>
+        </M3eCard>
+        <M3eCard variant="filled" className="auth-panel block">
+          <form onSubmit={e => void submit(e)} className="auth-form">
+            <div className="auth-form-header mb-7 flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
+              <img src="/floria-dock.png" alt="" className="auth-form-logo h-16 w-16 rounded-2xl object-cover" />
+              <h1 className="t-headline-s">{setup ? t('auth.welcome') : t('auth.login')}</h1>
+              <p className="t-body-m max-w-sm text-on-surface-variant">{setup ? t('auth.setupText') : t('auth.loginText')}</p>
+            </div>
+            <div className="flex flex-col gap-4">
+              <TextField id="u" label={t('auth.username')} value={username} onChange={setUsername} autoFocus autoComplete="username"
+                support={setup ? t('auth.usernameHelp') : ''} />
+              <TextField id="p" label={t('auth.password')} type="password" value={password} onChange={setPassword}
+                autoComplete={setup ? 'new-password' : 'current-password'} support={setup ? t('auth.passwordHelp') : ''} />
+              {setup && <TextField id="p2" label={t('auth.repeat')} type="password" value={again} onChange={setAgain} autoComplete="new-password"
+                error={mismatch} support={mismatch ? t('auth.mismatch') : ''} />}
+            </div>
+            {error && <p role="alert" aria-live="polite" className="auth-error t-body-m mt-4 flex items-start gap-2"><Icon name="error" size={18} />{error}</p>}
+            <div className="auth-submit mt-7">
+              <Btn type="submit" variant="filled" disabled={!can}>
+                {busy && <Icon slot="icon" name="progress_activity" className="animate-spin" />}
+                {busy ? t('auth.working') : setup ? t('auth.create') : t('auth.submit')}
+              </Btn>
+            </div>
+            {demo && <p className="auth-demo-note t-body-s mt-5 flex items-start gap-2 text-on-surface-variant"><Icon name="info" size={18} />{t('auth.demo')}</p>}
+          </form>
+        </M3eCard>
+      </div>
     </main>
   );
 }

@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@m3e/web/theme';
 import '@fontsource-variable/roboto-flex/opsz.css';
-import 'material-symbols/rounded.css';
+import './ui/registerIcons';
 import './index.css';
 import App from './App';
 

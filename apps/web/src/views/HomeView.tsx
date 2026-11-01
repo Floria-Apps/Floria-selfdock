@@ -73,7 +73,6 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all, cat, q, prefs.lang]);
   const usedCats = useMemo(() => new Set(all.map(s => s.category)), [all]);
-
   return (
     <>
       {!docker.ok && <DockerBanner code={docker.code} detail={docker.detail} />}
@@ -88,12 +87,14 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
               <Icon name="dns" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="t-title-m block">{t('server.title')}</span>
+              <span className="t-title-m flex flex-wrap items-center gap-x-2 gap-y-1">
+                {t('server.title')}
+                {(metrics.disk.percent >= 85 || metrics.ram.percent >= 92 || metrics.cpu >= 90) && (
+                  <span className="t-label-m rounded-full bg-warning-container px-3 py-1 text-on-warning-container">{t('server.attention')}</span>
+                )}
+              </span>
               <span className="t-body-s block text-on-surface-variant">{t('server.expandHint')}</span>
             </span>
-            {(metrics.disk.percent >= 85 || metrics.ram.percent >= 92 || metrics.cpu >= 90) && (
-              <span className="t-label-m rounded-full bg-warning-container px-3 py-1 text-on-warning-container">{t('server.attention')}</span>
-            )}
           </span>
           <div className="grid grid-cols-1 gap-3 px-1 pb-2 sm:grid-cols-3">
             <Gauge label={t('server.disk')} sub={t('server.free', { size: bytes(metrics.disk.total - metrics.disk.used) })} value={metrics.disk.percent} warn={metrics.disk.percent >= 85} />
@@ -104,7 +105,7 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
       )}
 
       {all.length > 0 && (
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <ChipSelect label={t('filter.aria')} value={cat} onChange={setCat}
               options={[{ v: 'all', label: t('category.all') }, ...CATEGORIES.filter(c => usedCats.has(c.id)).map(c => ({ v: c.id, label: catName(c.id) }))]} />
@@ -118,9 +119,12 @@ export function HomeView({ query, go }: { query: string; go: (v: 'alerts' | 'his
 
       {groups.map(g => (
         <section key={g.c.id} className="mt-5" aria-labelledby={`h-${g.c.id}`}>
-          <h2 id={`h-${g.c.id}`} className="t-title-m mb-3 px-1">{catName(g.c.id)}</h2>
+          <div className="mb-3 flex min-w-0 items-center justify-between gap-3 px-1">
+            <h2 id={`h-${g.c.id}`} className="t-title-m min-w-0 truncate">{catName(g.c.id)}</h2>
+            <span className="t-label-m shrink-0 text-on-surface-variant">{g.items.length}</span>
+          </div>
           {prefs.layout === 'grid' ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {g.items.map(s => <AppCard key={s.id} service={s} showPort={prefs.showPort} logos={prefs.showLogos} />)}
             </div>
           ) : (

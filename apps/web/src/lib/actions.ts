@@ -24,10 +24,33 @@ export async function runAction(s: Service, action: Action) {
   }
 }
 
-/** Address to open the app: the container's `floria.url` label, or this machine's address plus the published port. */
+export function isSafeHttpUrl(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch { return false; }
+}
+
+export function appLocalUrl(s: Service): string | null {
+  if (s.addresses.customized.localUrl) return isSafeHttpUrl(s.addresses.localUrl) ? s.addresses.localUrl : null;
+  if (isSafeHttpUrl(s.addresses.localUrl)) return s.addresses.localUrl;
+  const mapping = s.addresses.publishedPort;
+  if (mapping?.hostPort && (!mapping.hostIp || mapping.hostIp === '0.0.0.0')) {
+    return `http://${location.hostname}:${mapping.hostPort}`;
+  }
+  if (s.addresses.webPortSource === 'label' && !mapping && s.port) return `http://${location.hostname}:${s.port}`;
+  return null;
+}
+
+/** Chooses an explicitly configured or verified address without treating arbitrary published ports as web ports. */
 export function appUrl(s: Service): string | null {
-  if (s.url) return s.url;
-  if (s.port) return `${location.protocol}//${location.hostname}:${s.port}`;
+  const localUrl = appLocalUrl(s);
+  if (s.addresses.customized.localUrl && localUrl) return localUrl;
+  if (isSafeHttpUrl(s.url)) return s.url;
+  if (localUrl) return localUrl;
+  if (isSafeHttpUrl(s.addresses.tailscaleUrl)) return s.addresses.tailscaleUrl;
+  if (isSafeHttpUrl(s.addresses.proxyUrl)) return s.addresses.proxyUrl;
   return null;
 }
 
