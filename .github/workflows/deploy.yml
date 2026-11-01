@@ -152,7 +152,7 @@ jobs:
 
       - name: Create or update the release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
           TAG: ${{ inputs.release_version != '' && format('v{0}', inputs.release_version) || github.ref_name }}
         run: |
           flags=()
@@ -168,6 +168,6 @@ jobs:
             gh release create "$TAG" release/* \
               --verify-tag \
               --generate-notes \
-              --title "Floria SelfDock $TAG" \
+              --title "Floria SelfDock Release $TAG" \
               "${flags[@]}"
           fi

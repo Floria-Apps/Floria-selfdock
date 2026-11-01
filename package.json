@@ -1,6 +1,6 @@
 {
   "name": "floria-selfdock",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "A friendly self-hosted Docker dashboard in Material 3 Expressive style. Part of FloriaApps.",
